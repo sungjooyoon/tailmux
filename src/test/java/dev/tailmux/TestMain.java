@@ -66,6 +66,7 @@ public final class TestMain {
         testListUsesSingleDiscoveryCommandPerNode();
         testListScansConfiguredSockets();
         testListDiscoversNodesConcurrently();
+        testDiscoveryWorkerFailureIsReported();
         testListRendersLiveWindowCounts();
         testListWindowsRendersActivePaneMetadata();
         testListPanesRendersPaneRows();
@@ -483,6 +484,16 @@ public final class TestMain {
         check(elapsedMillis < 900, "node discovery runs concurrently");
     }
 
+    private void testDiscoveryWorkerFailureIsReported() throws Exception {
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), new ThrowingRemoteExecutor(),
+                Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), console)
+                .run(List.of("ls"));
+
+        check(exit == ExitCodes.GENERAL_FAILURE, "discovery worker failure exits general failure");
+        check(console.err().contains("FAIL discovery: worker exploded"), "discovery worker failure preserves cause");
+    }
+
     private void testDoctorClassification() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
         remote.when("office-a", "echo ok", ExecResult.success("ok\n"));
@@ -625,6 +636,18 @@ public final class TestMain {
         public ExecResult execute(NodeConfig node, String command) throws InterruptedException {
             Thread.sleep(delay.toMillis());
             return ExecResult.success(TmuxCommands.DISCOVERY_WINDOWS_MARKER + "\n");
+        }
+
+        @Override
+        public int attachInteractive(NodeConfig node, String command) {
+            return 0;
+        }
+    }
+
+    private static final class ThrowingRemoteExecutor implements RemoteExecutor {
+        @Override
+        public ExecResult execute(NodeConfig node, String command) {
+            throw new IllegalStateException("worker exploded");
         }
 
         @Override

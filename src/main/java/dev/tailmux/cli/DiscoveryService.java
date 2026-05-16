@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -43,8 +44,12 @@ final class DiscoveryService {
             for (Future<NodeSnapshot> future : futures) {
                 try {
                     snapshots.add(future.get());
-                } catch (Exception e) {
-                    throw new TailmuxException(ExitCodes.GENERAL_FAILURE, "FAIL discovery: " + e.getMessage(), e);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new TailmuxException(ExitCodes.GENERAL_FAILURE, "FAIL discovery interrupted", e);
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause() == null ? e : e.getCause();
+                    throw new TailmuxException(ExitCodes.GENERAL_FAILURE, "FAIL discovery: " + cause.getMessage(), cause);
                 }
             }
             return List.copyOf(snapshots);
