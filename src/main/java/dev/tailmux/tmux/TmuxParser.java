@@ -10,8 +10,10 @@ import dev.tailmux.exec.ExecResult;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 public final class TmuxParser {
     private static final String SEP = "\u001F";
@@ -73,7 +75,9 @@ public final class TmuxParser {
             }
         }
 
-        return new NodeSnapshot(node, NodeStatus.ONLINE, seenAt, sessions.values().stream().map(MutableSession::toSession).toList());
+        ArrayList<TmuxSession> parsed = new ArrayList<>(sessions.size());
+        for (MutableSession session : sessions.values()) parsed.add(session.toSession());
+        return new NodeSnapshot(node, NodeStatus.ONLINE, seenAt, parsed);
     }
 
     public static DiscoveryOutput splitDiscoveryOutput(String output) {
@@ -96,10 +100,46 @@ public final class TmuxParser {
     }
 
     private static Iterable<String> lines(String output) {
-        if (output == null || output.isBlank()) {
-            return () -> java.util.Collections.emptyIterator();
-        }
-        return () -> output.lines().filter(line -> !line.isBlank()).iterator();
+        if (output == null || output.isEmpty()) return () -> java.util.Collections.emptyIterator();
+        return () -> new Iterator<>() {
+            private int start;
+            private String next;
+            private boolean ready;
+
+            @Override
+            public boolean hasNext() {
+                prepare();
+                return next != null;
+            }
+
+            @Override
+            public String next() {
+                prepare();
+                if (next == null) throw new NoSuchElementException();
+                String line = next;
+                next = null;
+                ready = false;
+                return line;
+            }
+
+            private void prepare() {
+                if (ready) return;
+                ready = true;
+                while (start <= output.length()) {
+                    int rawEnd = output.indexOf('\n', start);
+                    if (rawEnd < 0) rawEnd = output.length();
+                    int end = rawEnd > start && output.charAt(rawEnd - 1) == '\r' ? rawEnd - 1 : rawEnd;
+                    String line = output.substring(start, end);
+                    start = rawEnd + 1;
+                    if (!line.isBlank()) {
+                        next = line;
+                        return;
+                    }
+                    if (rawEnd == output.length()) break;
+                }
+                next = null;
+            }
+        };
     }
 
     private static String[] fields(String line) {
@@ -179,7 +219,9 @@ public final class TmuxParser {
         }
 
         private TmuxSession toSession() {
-            return new TmuxSession(socket, name, id, attached, created, activity, windows.stream().map(MutableWindow::toWindow).toList(), windowCount);
+            ArrayList<TmuxWindow> parsedWindows = new ArrayList<>(windows.size());
+            for (MutableWindow window : windows) parsedWindows.add(window.toWindow());
+            return new TmuxSession(socket, name, id, attached, created, activity, parsedWindows, windowCount);
         }
     }
 
