@@ -28,13 +28,13 @@ public final class TmuxCommands {
 
     public static String discover(String socket) {
         return listSessions(socket)
-                + " ; "
+                + " && "
                 + PosixShell.join(List.of("printf", "\n" + DISCOVERY_WINDOWS_MARKER + "\n"))
-                + " ; "
+                + " && "
                 + listWindows(socket)
-                + " ; "
+                + " && "
                 + PosixShell.join(List.of("printf", "\n" + DISCOVERY_PANES_MARKER + "\n"))
-                + " ; "
+                + " && "
                 + listPanes(socket);
     }
 

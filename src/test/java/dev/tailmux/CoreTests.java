@@ -16,6 +16,7 @@ final class CoreTests extends TestMain {
         testSelectorParsing();
         testShellQuoting();
         testTmuxEnsureSessionIsRaceTolerant();
+        testTmuxDiscoveryShortCircuits();
         testTmuxNoServerClassifierAcceptsTmuxPhrasing();
     }
 
@@ -59,5 +60,11 @@ final class CoreTests extends TestMain {
 
     private void testTmuxNoServerClassifierAcceptsTmuxPhrasing() {
         check(TmuxFailure.noServer(ExecResult.failure(1, "", "failed to connect to server")), "classifies tmux failed-to-connect as no server");
+    }
+
+    private void testTmuxDiscoveryShortCircuits() {
+        String command = TmuxCommands.discover("default");
+        check(command.contains(" && "), "tmux discovery short-circuits between probes");
+        check(!command.contains(" ; "), "tmux discovery avoids unconditional probe separators");
     }
 }
