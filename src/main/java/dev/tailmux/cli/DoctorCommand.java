@@ -176,50 +176,39 @@ final class DoctorCommand {
 
     private List<String> sshFailureLines(NodeConfig node, ExecResult result) {
         String error = result.errorText();
-        if (isResolverFailure(error)) {
-            return List.of(
+        return switch (classifySshFailure(result, error)) {
+            case RESOLVER -> List.of(
                     "FAIL  " + node.id().value() + " magicdns resolution failed: " + error,
                     "Try:",
                     "  tailmux doctor --network",
                     "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
-        }
-        if (result.exitCode() == 124 || error.toLowerCase().contains("timed out")) {
-            return List.of(
+            case TIMEOUT -> List.of(
                     "FAIL  " + node.id().value() + " tailscale ssh timed out: " + error,
                     "Try:",
                     "  tailscale ping --c=1 " + node.host());
-        }
-        if (isHostKeyFailure(error)) {
-            return List.of(
+            case HOST_KEY -> List.of(
                     "FAIL  " + node.id().value() + " tailscale ssh host key verification failed: " + error,
                     "Try:",
                     "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
-        }
-        if (isAuthFailure(error)) {
-            return List.of(
+            case AUTH -> List.of(
                     "FAIL  " + node.id().value() + " tailscale ssh auth failed: " + error,
                     "Try:",
                     "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
-        }
-        return List.of(
-                "FAIL  " + node.id().value() + " tailscale ssh failed: " + error,
-                "Try:",
-                "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+            case OTHER -> List.of(
+                    "FAIL  " + node.id().value() + " tailscale ssh failed: " + error,
+                    "Try:",
+                    "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+        };
     }
 
-    private boolean isResolverFailure(String error) {
+    private SshFailure classifySshFailure(ExecResult result, String error) {
+        if (result.exitCode() == 124) return SshFailure.TIMEOUT;
         String lower = error.toLowerCase();
-        return lower.contains("could not resolve hostname") || lower.contains("nodename nor servname provided");
-    }
-
-    private boolean isHostKeyFailure(String error) {
-        String lower = error.toLowerCase();
-        return lower.contains("host key verification failed") || lower.contains("no ed25519 host key is known");
-    }
-
-    private boolean isAuthFailure(String error) {
-        String lower = error.toLowerCase();
-        return lower.contains("permission denied") || lower.contains("authentication failed");
+        if (lower.contains("could not resolve hostname") || lower.contains("nodename nor servname provided")) return SshFailure.RESOLVER;
+        if (lower.contains("timed out")) return SshFailure.TIMEOUT;
+        if (lower.contains("host key verification failed") || lower.contains("no ed25519 host key is known")) return SshFailure.HOST_KEY;
+        if (lower.contains("permission denied") || lower.contains("authentication failed")) return SshFailure.AUTH;
+        return SshFailure.OTHER;
     }
 
     private boolean pingReachable(ExecResult result) {
@@ -249,5 +238,13 @@ final class DoctorCommand {
     }
 
     private record NodeDoctorResult(boolean failed, List<String> lines) {
+    }
+
+    private enum SshFailure {
+        RESOLVER,
+        TIMEOUT,
+        HOST_KEY,
+        AUTH,
+        OTHER
     }
 }

@@ -22,6 +22,7 @@ final class DoctorTests extends TestMain {
         testDoctorClassifiesAuthFailure();
         testDoctorClassifiesSshTimeout();
         testDoctorClassifiesMissingRemoteTmux();
+        testDoctorFoldsDiagnosticTextOnce();
         testDoctorChecksRemoteNodesConcurrently();
         testDoctorNetworkUsesSafeReadOnlyProbes();
         testDoctorNetworkChecksNodesConcurrently();
@@ -119,6 +120,12 @@ final class DoctorTests extends TestMain {
         check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "doctor missing remote tmux exits remote error");
         check(console.out().contains("FAIL  office-a remote tmux missing"), "doctor classifies missing remote tmux");
         check(console.out().contains("tailscale ssh office-a 'command -v tmux'"), "doctor missing remote tmux gives safe check");
+    }
+
+    private void testDoctorFoldsDiagnosticTextOnce() throws Exception {
+        String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DoctorCommand.java"));
+        int folds = count(source, "toLowerCase()");
+        check(folds <= 2, "doctor folds diagnostic text only in shared classifiers");
     }
 
     private void testDoctorChecksRemoteNodesConcurrently() throws Exception {
@@ -233,5 +240,11 @@ final class DoctorTests extends TestMain {
 
         check(exit == ExitCodes.SUCCESS, "network doctor fqdn exits success");
         check(console.out().contains("OK    office-a tailscale dns resolved host"), "network doctor checks fqdn tailscale dns");
+    }
+
+    private int count(String source, String needle) {
+        int count = 0;
+        for (int index = source.indexOf(needle); index >= 0; index = source.indexOf(needle, index + needle.length())) count++;
+        return count;
     }
 }
