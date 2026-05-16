@@ -72,13 +72,11 @@ final class DoctorCommand {
 
     private NodeDoctorResult checkRemoteNode(NodeConfig node) throws IOException, InterruptedException {
         ArrayList<String> lines = new ArrayList<>();
-        ExecResult ssh = remote.execute(node, "echo ok");
-        if (!ssh.ok()) {
-            return new NodeDoctorResult(true, sshFailureLines(node, ssh));
+        ExecResult tmux = remote.execute(node, "command -v tmux");
+        if (TmuxFailure.remoteExecution(tmux)) {
+            return new NodeDoctorResult(true, sshFailureLines(node, tmux));
         }
         lines.add("OK    " + node.id().value() + " tailscale ssh");
-
-        ExecResult tmux = remote.execute(node, "command -v tmux");
         if (!tmux.ok()) {
             lines.add("FAIL  " + node.id().value() + " remote tmux missing");
             lines.add("Try:");

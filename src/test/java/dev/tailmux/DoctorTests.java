@@ -16,6 +16,7 @@ final class DoctorTests extends TestMain {
     @Override
     void run() throws Exception {
         testDoctorClassification();
+        testDoctorUsesRemoteTmuxProbeAsSshCheck();
         testDoctorClassifiesMagicDnsFailure();
         testDoctorClassifiesHostKeyFailure();
         testDoctorClassifiesAuthFailure();
@@ -30,7 +31,6 @@ final class DoctorTests extends TestMain {
 
     private void testDoctorClassification() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "echo ok", ExecResult.success("ok\n"));
         remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
         remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(1, "", "no server running"));
 
@@ -42,9 +42,21 @@ final class DoctorTests extends TestMain {
         check(console.out().contains("WARN  office-a tmux default no server currently running"), "doctor warns for no server");
     }
 
+    private void testDoctorUsesRemoteTmuxProbeAsSshCheck() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
+        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(1, "", "no server running"));
+
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), new CapturingConsole())
+                .run(List.of("doctor"));
+
+        check(exit == ExitCodes.SUCCESS, "doctor tmux probe exits success");
+        check(remote.commandsFor("office-a").equals(List.of("command -v tmux", TmuxCommands.listSessions("default"))), "doctor uses command-v tmux as ssh probe");
+    }
+
     private void testDoctorClassifiesMagicDnsFailure() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "echo ok", ExecResult.failure(255, "", "ssh: Could not resolve hostname office-a.tail.ts.net.: nodename nor servname provided, or not known"));
+        remote.when("office-a", "command -v tmux", ExecResult.failure(255, "", "ssh: Could not resolve hostname office-a.tail.ts.net.: nodename nor servname provided, or not known"));
 
         CapturingConsole console = new CapturingConsole();
         int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), console)
@@ -58,7 +70,7 @@ final class DoctorTests extends TestMain {
 
     private void testDoctorClassifiesHostKeyFailure() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "echo ok", ExecResult.failure(255, "",
+        remote.when("office-a", "command -v tmux", ExecResult.failure(255, "",
                 "No ED25519 host key is known for 100.126.50.79 and you have requested strict checking.\nHost key verification failed."));
 
         CapturingConsole console = new CapturingConsole();
@@ -72,7 +84,7 @@ final class DoctorTests extends TestMain {
 
     private void testDoctorClassifiesAuthFailure() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "echo ok", ExecResult.failure(255, "", "Permission denied (publickey)."));
+        remote.when("office-a", "command -v tmux", ExecResult.failure(255, "", "Permission denied (publickey)."));
 
         CapturingConsole console = new CapturingConsole();
         int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), console)
@@ -84,7 +96,7 @@ final class DoctorTests extends TestMain {
 
     private void testDoctorClassifiesSshTimeout() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "echo ok", ExecResult.failure(124, "", "command timed out after 10s"));
+        remote.when("office-a", "command -v tmux", ExecResult.failure(124, "", "command timed out after 10s"));
 
         CapturingConsole console = new CapturingConsole();
         int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), console)
@@ -97,7 +109,6 @@ final class DoctorTests extends TestMain {
 
     private void testDoctorClassifiesMissingRemoteTmux() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "echo ok", ExecResult.success("ok\n"));
         remote.when("office-a", "command -v tmux", ExecResult.failure(127, "", "tmux: command not found"));
 
         CapturingConsole console = new CapturingConsole();
