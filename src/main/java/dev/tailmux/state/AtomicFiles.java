@@ -9,8 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Properties;
-import java.util.stream.Collectors;
 
 public final class AtomicFiles {
     private AtomicFiles() {
@@ -32,10 +33,13 @@ public final class AtomicFiles {
     }
 
     private static String render(Properties properties) {
-        return properties.stringPropertyNames().stream()
-                .sorted()
-                .map(name -> escape(name) + "=" + escape(properties.getProperty(name)))
-                .collect(Collectors.joining("\n", "", "\n"));
+        ArrayList<String> names = new ArrayList<>(properties.stringPropertyNames());
+        Collections.sort(names);
+        StringBuilder out = new StringBuilder();
+        for (String name : names) {
+            out.append(escape(name)).append('=').append(escape(properties.getProperty(name))).append('\n');
+        }
+        return out.toString();
     }
 
     private static String escape(String value) {

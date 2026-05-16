@@ -23,6 +23,7 @@ final class StateStoreTests extends TestMain {
         testMissingPaneFieldsRemainReadable();
         testWorkspaceWritesDeterministicKeys();
         testEventLogRedactsUnapprovedFields();
+        testStateWritersAvoidStreamCollectors();
     }
 
     private void testStateRoundTrip() throws Exception {
@@ -136,6 +137,15 @@ final class StateStoreTests extends TestMain {
         check(log.contains("node=office-a_bad"), "event log sanitizes newlines");
         check(!log.contains("secret"), "event log redacts unapproved fields");
         check(!log.contains("stdout"), "event log skips command output key");
+    }
+
+    private void testStateWritersAvoidStreamCollectors() throws Exception {
+        for (String file : List.of(
+                "src/main/java/dev/tailmux/state/AtomicFiles.java",
+                "src/main/java/dev/tailmux/state/PropertiesStateStore.java")) {
+            String source = Files.readString(Path.of(file));
+            check(!source.contains(".stream()") && !source.contains("Collectors"), file + " avoids stream collectors");
+        }
     }
 
     private TailmuxException expectTailmuxException(ThrowingRunnable runnable) {

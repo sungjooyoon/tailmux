@@ -18,11 +18,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public final class PropertiesStateStore {
     private static final Set<String> EVENT_FIELDS = Set.of("command", "node", "session", "socket", "status", "transport", "workspace");
@@ -180,16 +180,18 @@ public final class PropertiesStateStore {
     public void appendEvent(Instant at, String event, Map<String, String> fields) {
         try {
             Files.createDirectories(stateDir.resolve("events"));
-            String line = "timestamp=" + clean(at.toString())
-                    + " event=" + clean(event)
-                    + fields.entrySet().stream()
-                    .filter(entry -> EVENT_FIELDS.contains(entry.getKey()))
-                    .sorted(Map.Entry.comparingByKey())
-                    .map(entry -> " " + entry.getKey() + "=" + clean(entry.getValue()))
-                    .collect(Collectors.joining())
-                    + "\n";
+            ArrayList<String> names = new ArrayList<>(fields.keySet());
+            Collections.sort(names);
+            StringBuilder line = new StringBuilder("timestamp=")
+                    .append(clean(at.toString()))
+                    .append(" event=")
+                    .append(clean(event));
+            for (String name : names) {
+                if (EVENT_FIELDS.contains(name)) line.append(' ').append(name).append('=').append(clean(fields.get(name)));
+            }
+            line.append('\n');
             Files.writeString(stateDir.resolve("events").resolve(at.toString().substring(0, 10) + ".log"),
-                    line, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                    line.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL state: could not write event log: " + e.getMessage(), e);
         }
