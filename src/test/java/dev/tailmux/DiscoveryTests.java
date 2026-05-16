@@ -104,14 +104,14 @@ final class DiscoveryTests extends TestMain {
         String output = "work\u001F\u00241\u001F0\u001F1\u001F2\n"
                 + TmuxCommands.DISCOVERY_WINDOWS_MARKER + "\n"
                 + "work\u001F0\u001F@1\u001Feditor\u001F1\n";
-        remote.when("office-a", TmuxCommands.discover("default"), ExecResult.success(output));
+        remote.when("office-a", TmuxCommands.discoverWindows("default"), ExecResult.success(output));
 
         int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
                 Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), new CapturingConsole())
                 .run(List.of("ls", "--windows"));
 
         check(exit == ExitCodes.SUCCESS, "single discovery exits success");
-        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.discover("default"))), "ls --windows uses one discovery command");
+        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.discoverWindows("default"))), "ls --windows uses one discovery command");
     }
 
     private void testListScansConfiguredSockets() throws Exception {
@@ -132,8 +132,8 @@ final class DiscoveryTests extends TestMain {
 
         check(exit == ExitCodes.SUCCESS, "multi-socket ls exits success");
         check(console.out().contains("modal"), "multi-socket ls discovers non-default socket session");
-        check(remote.commandsFor("office-a").contains(TmuxCommands.discover("default")), "multi-socket ls probes default socket");
-        check(remote.commandsFor("office-a").contains(TmuxCommands.discover("work")), "multi-socket ls probes work socket");
+        check(remote.commandsFor("office-a").contains(TmuxCommands.discoverWindows("default")), "multi-socket ls probes default socket");
+        check(remote.commandsFor("office-a").contains(TmuxCommands.discoverWindows("work")), "multi-socket ls probes work socket");
     }
 
     private void testListDiscoversNodesConcurrently() throws Exception {

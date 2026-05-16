@@ -18,6 +18,7 @@ final class ListRenderingTests extends TestMain {
         testListRendersLiveWindowCounts();
         testPlainListUsesSessionWindowCountsOnly();
         testListWindowsRendersActivePaneMetadata();
+        testListWindowsAvoidsFullPaneDiscovery();
         testListPanesRendersPaneRows();
     }
 
@@ -52,8 +53,7 @@ final class ListRenderingTests extends TestMain {
     private void testListWindowsRendersActivePaneMetadata() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
         remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
-        remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success("work\u001F0\u001F@1\u001Feditor\u001F1\n"));
-        remote.when("office-a", TmuxCommands.listPanes("default"), ExecResult.success("work\u001F0\u001F0\u001F%1\u001F/Users/sungjooyoon/code/tailmux\u001Fnvim\u001F1\n"));
+        remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success("work\u001F0\u001F@1\u001Feditor\u001F1\u001F0\u001F%1\u001F/Users/sungjooyoon/code/tailmux\u001Fnvim\n"));
 
         CapturingConsole console = new CapturingConsole();
         int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
@@ -63,6 +63,19 @@ final class ListRenderingTests extends TestMain {
         check(exit == ExitCodes.SUCCESS, "ls --windows exits success");
         check(console.out().contains("/Users/sungjooyoon/code/tailmux"), "ls --windows renders active pane cwd");
         check(console.out().contains("nvim"), "ls --windows renders active pane command");
+    }
+
+    private void testListWindowsAvoidsFullPaneDiscovery() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
+        remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success("work\u001F0\u001F@1\u001Feditor\u001F1\u001F0\u001F%1\u001F/tmp\u001Fzsh\n"));
+
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
+                Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), new CapturingConsole())
+                .run(List.of("ls", "--windows"));
+
+        check(exit == ExitCodes.SUCCESS, "ls --windows exits success without full pane discovery");
+        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.discoverWindows("default"))), "ls --windows uses window-only discovery");
     }
 
     private void testListPanesRendersPaneRows() throws Exception {

@@ -38,6 +38,19 @@ public final class FakeRemoteExecutor implements RemoteExecutor {
             return nodeFailure;
         }
         for (String socket : node.sockets()) {
+            if (command.equals(TmuxCommands.discoverWindows(socket))) {
+                ExecResult sessions = responses.get(key(node.id().value(), TmuxCommands.listSessions(socket)));
+                ExecResult windows = responses.get(key(node.id().value(), TmuxCommands.listWindows(socket)));
+                if (sessions != null) {
+                    if (!sessions.ok()) {
+                        return sessions;
+                    }
+                    String stdout = sessions.stdout()
+                            + TmuxCommands.DISCOVERY_WINDOWS_MARKER + "\n"
+                            + (windows == null ? "" : windows.stdout());
+                    return new ExecResult(windows == null ? 0 : windows.exitCode(), stdout, windows == null ? "" : windows.stderr());
+                }
+            }
             if (command.equals(TmuxCommands.discover(socket))) {
                 ExecResult sessions = responses.get(key(node.id().value(), TmuxCommands.listSessions(socket)));
                 ExecResult windows = responses.get(key(node.id().value(), TmuxCommands.listWindows(socket)));

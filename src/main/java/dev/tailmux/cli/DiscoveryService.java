@@ -41,10 +41,18 @@ final class DiscoveryService {
         return discoverNodes(nodes, includeWindows).stream().map(DiscoveredNode::snapshot).toList();
     }
 
+    List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
+        return discoverNodes(nodes, includeWindows, includePanes).stream().map(DiscoveredNode::snapshot).toList();
+    }
+
     List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows) {
+        return discoverNodes(nodes, includeWindows, includeWindows);
+    }
+
+    private List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<DiscoveredNode>> futures = nodes.stream()
-                    .map(node -> executor.submit(() -> new DiscoveredNode(node, discoverOrCached(node, includeWindows))))
+                    .map(node -> executor.submit(() -> new DiscoveredNode(node, discoverOrCached(node, includeWindows, includePanes))))
                     .toList();
             ArrayList<DiscoveredNode> discovered = new ArrayList<>();
             for (Future<DiscoveredNode> future : futures) {
@@ -62,10 +70,10 @@ final class DiscoveryService {
         }
     }
 
-    private NodeSnapshot discoverOrCached(NodeConfig node, boolean includeWindows) {
+    private NodeSnapshot discoverOrCached(NodeConfig node, boolean includeWindows, boolean includePanes) {
         Optional<NodeSnapshot> recentOffline = recentOfflineSnapshot(node);
         if (recentOffline.isPresent()) return recentOffline.get().withStatus(NodeStatus.OFFLINE);
-        NodeSnapshot snapshot = discover(node, includeWindows);
+        NodeSnapshot snapshot = discover(node, includeWindows, includePanes);
         if (snapshot.status() == NodeStatus.ONLINE || snapshot.status() == NodeStatus.NO_TMUX) {
             return snapshot;
         }
@@ -74,14 +82,12 @@ final class DiscoveryService {
                 .orElse(snapshot.withStatus(NodeStatus.OFFLINE));
     }
 
-    private NodeSnapshot discover(NodeConfig node, boolean includeWindows) {
+    private NodeSnapshot discover(NodeConfig node, boolean includeWindows, boolean includePanes) {
         Instant now = clock.instant();
         try {
             ArrayList<TmuxSession> sessions = new ArrayList<>();
             for (String socket : node.sockets()) {
-                ExecResult discovery = remote.execute(node, includeWindows
-                        ? TmuxCommands.discover(socket)
-                        : TmuxCommands.listSessions(socket));
+                ExecResult discovery = remote.execute(node, discoveryCommand(socket, includeWindows, includePanes));
                 if (TmuxFailure.missingBinary(discovery)) {
                     return failureSnapshot(node, NodeStatus.NO_TMUX, now);
                 }
@@ -106,6 +112,11 @@ final class DiscoveryService {
             }
             return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
         }
+    }
+
+    private String discoveryCommand(String socket, boolean includeWindows, boolean includePanes) {
+        if (includePanes) return TmuxCommands.discover(socket);
+        return includeWindows ? TmuxCommands.discoverWindows(socket) : TmuxCommands.listSessions(socket);
     }
 
     private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now) {

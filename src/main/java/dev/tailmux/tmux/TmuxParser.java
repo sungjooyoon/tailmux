@@ -27,6 +27,7 @@ public final class TmuxParser {
     public static NodeSnapshot parse(NodeId node, String socket, String sessionsOutput, String windowsOutput, String panesOutput, Instant seenAt) {
         Map<String, MutableSession> sessions = new LinkedHashMap<>();
         Map<String, MutableWindow> windows = new LinkedHashMap<>();
+        boolean hasFullPaneRows = panesOutput != null && !panesOutput.isBlank();
         for (String line : lines(sessionsOutput)) {
             String[] parts = line.split(SEP, -1);
             if (parts.length < 5) {
@@ -52,6 +53,9 @@ public final class TmuxParser {
             // tmux can report rows from stale/racing state; keep discovery useful by ignoring rows whose parent is absent.
             if (session != null) {
                 MutableWindow window = new MutableWindow(parseInt(parts[1]), parts[2], parts[3], "1".equals(parts[4]));
+                if (!hasFullPaneRows && parts.length >= 9) {
+                    window.panes.add(new TmuxPane(parseInt(parts[5]), parts[6], parts[7], parts[8], true));
+                }
                 session.windows.add(window);
                 windows.put(windowKey(parts[0], window.index), window);
             }

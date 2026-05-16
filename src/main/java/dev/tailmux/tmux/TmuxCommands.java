@@ -6,7 +6,7 @@ import java.util.List;
 
 public final class TmuxCommands {
     public static final String SESSION_FORMAT = "#{session_name}\\037#{session_id}\\037#{session_attached}\\037#{session_created}\\037#{session_activity}\\037#{session_windows}";
-    public static final String WINDOW_FORMAT = "#{session_name}\\037#{window_index}\\037#{window_id}\\037#{window_name}\\037#{window_active}";
+    public static final String WINDOW_FORMAT = "#{session_name}\\037#{window_index}\\037#{window_id}\\037#{window_name}\\037#{window_active}\\037#{pane_index}\\037#{pane_id}\\037#{pane_current_path}\\037#{pane_current_command}";
     public static final String PANE_FORMAT = "#{session_name}\\037#{window_index}\\037#{pane_index}\\037#{pane_id}\\037#{pane_current_path}\\037#{pane_current_command}\\037#{pane_active}";
     public static final String DISCOVERY_WINDOWS_MARKER = "\u001E_TAILMUX_WINDOWS_\u001E";
     public static final String DISCOVERY_PANES_MARKER = "\u001E_TAILMUX_PANES_\u001E";
@@ -27,15 +27,19 @@ public final class TmuxCommands {
     }
 
     public static String discover(String socket) {
-        return listSessions(socket)
-                + " && "
-                + PosixShell.join(List.of("printf", "\n" + DISCOVERY_WINDOWS_MARKER + "\n"))
-                + " && "
-                + listWindows(socket)
+        return discoverWindows(socket)
                 + " && "
                 + PosixShell.join(List.of("printf", "\n" + DISCOVERY_PANES_MARKER + "\n"))
                 + " && "
                 + listPanes(socket);
+    }
+
+    public static String discoverWindows(String socket) {
+        return listSessions(socket)
+                + " && "
+                + PosixShell.join(List.of("printf", "\n" + DISCOVERY_WINDOWS_MARKER + "\n"))
+                + " && "
+                + listWindows(socket);
     }
 
     public static String hasSession(String socket, String session) {

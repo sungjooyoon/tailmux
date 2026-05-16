@@ -15,6 +15,7 @@ final class TmuxParserTests {
         testTmuxParsing(tests);
         testSessionWindowCountParsesWithoutWindowRows(tests);
         testTmuxPaneParsing(tests);
+        testFullPaneParsingDoesNotDuplicateActiveWindowPane(tests);
         testEmptyAndWeirdSessionFixtures(tests);
         testOrphanWindowsAndPanesAreIgnored(tests);
         testBlankPaneFieldsRemainBlank(tests);
@@ -46,6 +47,16 @@ final class TmuxParserTests {
         tests.check(pane.currentPath().equals("/Users/sungjooyoon/code/tailmux"), "parses pane cwd");
         tests.check(pane.currentCommand().equals("nvim"), "parses pane command");
         tests.check(pane.active(), "parses pane active");
+    }
+
+    private static void testFullPaneParsingDoesNotDuplicateActiveWindowPane(TestMain tests) {
+        var snapshot = TmuxParser.parse(NodeId.parse("office-a"), "default",
+                "work\u001F$1\u001F1\u001F1\u001F2\u001F1\n",
+                "work\u001F0\u001F@0\u001Feditor\u001F1\u001F0\u001F%1\u001F/tmp\u001Fzsh\n",
+                "work\u001F0\u001F0\u001F%1\u001F/tmp\u001Fzsh\u001F1\n",
+                Instant.parse("2026-05-15T19:02:13Z"));
+
+        tests.check(snapshot.sessions().getFirst().windows().getFirst().panes().size() == 1, "full pane parse does not duplicate active pane from window row");
     }
 
     private static void testSessionWindowCountParsesWithoutWindowRows(TestMain tests) {
