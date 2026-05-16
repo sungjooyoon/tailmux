@@ -19,18 +19,13 @@ import dev.tailmux.tmux.TmuxParser;
 
 import java.io.IOException;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 public final class CommandRouter {
-    private static final Duration RECENT_OFFLINE_TTL = Duration.ofSeconds(60);
     private static final List<String> BUILTINS = List.of("doctor", "nodes", "ls", "attach", "start", "help");
 
     private final TailmuxConfig config;
@@ -70,7 +65,7 @@ public final class CommandRouter {
             ParsedCommand parsed = classify(args);
             store.appendEvent(clock.instant(), "command", Map.of("command", parsed.command()));
             return switch (parsed.command()) {
-                case "doctor" -> parsed.args().contains("--network") ? doctorNetwork() : doctor();
+                case "doctor" -> new DoctorCommand(config, remote, localProcess, console).run(parsed.args().contains("--network"));
                 case "nodes" -> nodes();
                 case "ls" -> list(parsed.args().contains("--windows") || parsed.args().contains("--panes"), parsed.args().contains("--panes"));
                 case "attach" -> attachCommand(parsed.args());
@@ -119,147 +114,14 @@ public final class CommandRouter {
         return ExitCodes.SUCCESS;
     }
 
-    private int doctor() throws IOException, InterruptedException {
-        boolean failed = false;
-        boolean tailscaleExists = localProcess.commandExists("tailscale");
-        boolean tmuxExists = localProcess.commandExists("tmux");
-        console.out("OK    local java " + System.getProperty("java.version"));
-        console.out((tailscaleExists ? "OK    " : "FAIL  ") + "local tailscale " + (tailscaleExists ? "found" : "not found"));
-        console.out((tmuxExists ? "OK    " : "WARN  ") + "local tmux " + (tmuxExists ? "found" : "not found"));
-        failed = failed || !tailscaleExists;
-        console.out("OK    config loaded");
-        console.out("OK    state dir writable");
-
-        for (NodeConfig node : config.nodeConfigs()) {
-            ExecResult ssh = remote.execute(node, "echo ok");
-            if (!ssh.ok()) {
-                failed = true;
-                printSshFailure(node, ssh);
-                continue;
-            }
-            console.out("OK    " + node.id().value() + " tailscale ssh");
-
-            ExecResult tmux = remote.execute(node, "command -v tmux");
-            if (!tmux.ok()) {
-                failed = true;
-                console.out("FAIL  " + node.id().value() + " remote tmux missing");
-                continue;
-            }
-            console.out("OK    " + node.id().value() + " remote tmux found");
-
-            for (String socket : node.sockets()) {
-                ExecResult sessions = remote.execute(node, TmuxCommands.listSessions(socket));
-                String label = node.id().value() + " tmux " + socket + " list-sessions";
-                if (TmuxParser.isNoServer(sessions)) {
-                    console.out("WARN  " + node.id().value() + " tmux " + socket + " no server currently running");
-                } else if (!sessions.ok()) {
-                    failed = true;
-                    console.out("FAIL  " + label + " failed: " + sessions.errorText());
-                } else {
-                    console.out("OK    " + label);
-                }
-            }
-        }
-        return failed ? ExitCodes.REMOTE_EXECUTION_ERROR : ExitCodes.SUCCESS;
-    }
-
-    private int doctorNetwork() throws IOException, InterruptedException {
-        boolean failed = false;
-        ExecResult status = localProcess.capture(List.of("tailscale", "status"));
-        if (status.ok()) {
-            console.out("OK    tailscale status");
-        } else {
-            failed = true;
-            console.out("FAIL  tailscale status failed: " + status.errorText());
-            console.out("Try:");
-            console.out("  tailscale status");
-        }
-        for (NodeConfig node : config.nodeConfigs()) {
-            String host = node.host();
-            ExecResult ping = localProcess.capture(List.of("tailscale", "ping", "--c=1", host));
-            if (ping.ok()) {
-                console.out("OK    " + node.id().value() + " tailscale ping");
-            } else {
-                console.out("WARN  " + node.id().value() + " tailscale ping failed: " + ping.errorText());
-                console.out("Try:");
-                console.out("  tailscale ping --c=1 " + host);
-            }
-            if (localProcess.commandExists("dscacheutil")) {
-                ExecResult resolver = localProcess.capture(List.of("dscacheutil", "-q", "host", "-a", "name", host));
-                if (resolver.ok() && !resolver.stdout().isBlank()) {
-                    console.out("OK    " + node.id().value() + " macOS resolver resolved host");
-                } else {
-                    console.out("WARN  " + node.id().value() + " macOS resolver did not resolve host");
-                    console.out("Try:");
-                    console.out("  dscacheutil -q host -a name " + host);
-                }
-            }
-            if (localProcess.commandExists("dig")) {
-                ExecResult dns = localProcess.capture(List.of("dig", "@100.100.100.100", host));
-                if (dns.ok() && dns.stdout().contains(" IN A")) {
-                    console.out("OK    " + node.id().value() + " tailscale dns resolved host");
-                } else {
-                    console.out("WARN  " + node.id().value() + " tailscale dns did not resolve host");
-                    console.out("Try:");
-                    console.out("  dig @100.100.100.100 " + host);
-                }
-            }
-        }
-        return failed ? ExitCodes.REMOTE_EXECUTION_ERROR : ExitCodes.SUCCESS;
-    }
-
-    private void printSshFailure(NodeConfig node, ExecResult result) {
-        String error = result.errorText();
-        if (isResolverFailure(error)) {
-            console.out("FAIL  " + node.id().value() + " magicdns resolution failed: " + error);
-            console.out("Try:");
-            console.out("  tailmux doctor --network");
-            console.out("  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
-            return;
-        }
-        if (result.exitCode() == 124 || error.toLowerCase().contains("timed out")) {
-            console.out("FAIL  " + node.id().value() + " tailscale ssh timed out: " + error);
-            console.out("Try:");
-            console.out("  tailscale ping --c=1 " + node.host());
-            return;
-        }
-        console.out("FAIL  " + node.id().value() + " tailscale ssh failed: " + error);
-        console.out("Try:");
-        console.out("  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
-    }
-
-    private boolean isResolverFailure(String error) {
-        String lower = error.toLowerCase();
-        return lower.contains("could not resolve hostname") || lower.contains("nodename nor servname provided");
-    }
-
     private int nodes() {
-        Renderers.renderNodes(console, config, discoverAll(false), clock);
+        Renderers.renderNodes(console, config, discovery().discoverAll(config.nodeConfigs(), false), clock);
         return ExitCodes.SUCCESS;
     }
 
     private int list(boolean includeWindows, boolean includePanes) {
-        Renderers.renderLs(console, discoverAll(true), clock, includeWindows, includePanes);
+        Renderers.renderLs(console, discovery().discoverAll(config.nodeConfigs(), true), clock, includeWindows, includePanes);
         return ExitCodes.SUCCESS;
-    }
-
-    private List<NodeSnapshot> discoverAll(boolean includeWindows) {
-        List<NodeConfig> nodes = config.nodeConfigs();
-        ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, nodes.size()));
-        try {
-            List<Future<NodeSnapshot>> futures = nodes.stream().map(node -> executor.submit(() -> discoverOrCached(node, includeWindows))).toList();
-            ArrayList<NodeSnapshot> snapshots = new ArrayList<NodeSnapshot> ();
-            for (Future<NodeSnapshot> future : futures) {
-                try {
-                    snapshots.add(future.get());
-                } catch (Exception e) {
-                    throw new TailmuxException(ExitCodes.GENERAL_FAILURE, "FAIL discovery: " + e.getMessage(), e);
-                }
-            }
-            return List.copyOf(snapshots);
-        } finally {
-            executor.shutdownNow();
-        }
     }
 
     private int attachCommand(List<String> args) throws IOException, InterruptedException {
@@ -287,7 +149,7 @@ public final class CommandRouter {
         ArrayList<NodeSession> matches = new ArrayList<NodeSession> ();
         ArrayList<NodeConfig> healthy = new ArrayList<NodeConfig> ();
         List<NodeConfig> nodes = config.nodeConfigs();
-        List<NodeSnapshot> snapshots = discoverAll(true);
+        List<NodeSnapshot> snapshots = discovery().discoverAll(config.nodeConfigs(), true);
         for (int i = 0; i < snapshots.size(); i++) {
             NodeSnapshot snapshot = snapshots.get(i);
             NodeConfig node = nodes.get(i);
@@ -402,60 +264,6 @@ public final class CommandRouter {
         return ExitCodes.SUCCESS;
     }
 
-    private NodeSnapshot discoverOrCached(NodeConfig node, boolean includeWindows) {
-        Optional<NodeSnapshot> recentOffline = recentOfflineSnapshot(node);
-        if (recentOffline.isPresent()) return recentOffline.get().withStatus(NodeStatus.OFFLINE);
-        NodeSnapshot snapshot = discover(node, includeWindows);
-        if (snapshot.status() == NodeStatus.ONLINE || snapshot.status() == NodeStatus.NO_TMUX) {
-            return snapshot;
-        }
-        return store.loadSnapshot(node.id())
-                .map(cached -> cached.withStatus(NodeStatus.OFFLINE))
-                .orElse(snapshot.withStatus(NodeStatus.OFFLINE));
-    }
-
-    private NodeSnapshot discover(NodeConfig node, boolean includeWindows) {
-        Instant now = clock.instant();
-        try {
-            ArrayList<TmuxSession> sessions = new ArrayList<TmuxSession> ();
-            for (String socket : node.sockets()) {
-                ExecResult discovery = remote.execute(node, includeWindows
-                        ? TmuxCommands.discover(socket)
-                        : TmuxCommands.listSessions(socket));
-                if (isTmuxMissing(discovery)) {
-                    return failureSnapshot(node, NodeStatus.NO_TMUX, now);
-                }
-                if (discovery.exitCode() == 255 || discovery.exitCode() == 124) {
-                    return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
-                }
-                if (TmuxParser.isNoServer(discovery)) {
-                    continue;
-                }
-                if (!discovery.ok()) {
-                    return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
-                }
-                TmuxParser.DiscoveryOutput output = includeWindows
-                        ? TmuxParser.splitDiscoveryOutput(discovery.stdout())
-                        : new TmuxParser.DiscoveryOutput(discovery.stdout(), "", "");
-                sessions.addAll(TmuxParser.parse(node.id(), socket, output.sessions(), output.windows(), output.panes(), now).sessions());
-            }
-            return save(new NodeSnapshot(node.id(), NodeStatus.ONLINE, now, sessions));
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
-        }
-    }
-
-    private boolean isTmuxMissing(ExecResult result) {
-        String text = (result.stderr() + "\n" + result.stdout()).toLowerCase();
-        return result.exitCode() == 127
-                || text.contains("tmux: command not found")
-                || text.contains("tmux: not found")
-                || text.contains("command not found: tmux");
-    }
-
     private String resolveSessionSocket(NodeConfig node, String session) throws IOException, InterruptedException {
         ArrayList<String> matches = new ArrayList<String> ();
         for (String socket : node.sockets()) {
@@ -480,25 +288,8 @@ public final class CommandRouter {
         return matches.getFirst();
     }
 
-    private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now) {
-        return store.loadSnapshot(node.id())
-                .filter(snapshot -> !snapshot.sessions().isEmpty())
-                .map(snapshot -> snapshot.withStatus(NodeStatus.OFFLINE))
-                .orElseGet(() -> save(new NodeSnapshot(node.id(), status, now, List.of())));
-    }
-
-    private NodeSnapshot save(NodeSnapshot snapshot) {
-        store.saveSnapshot(snapshot);
-        return snapshot;
-    }
-
-    private Optional<NodeSnapshot> recentOfflineSnapshot(NodeConfig node) {
-        return store.loadSnapshot(node.id())
-                .filter(snapshot -> snapshot.status() == NodeStatus.SSH_FAILED || snapshot.status() == NodeStatus.OFFLINE)
-                .filter(snapshot -> {
-                    Duration age = Duration.between(snapshot.lastSeenAt(), clock.instant());
-                    return !age.isNegative() && age.compareTo(RECENT_OFFLINE_TTL) <= 0;
-                });
+    private DiscoveryService discovery() {
+        return new DiscoveryService(store, remote, clock);
     }
 
     private record NodeSession(NodeConfig node, TmuxSession session) {
