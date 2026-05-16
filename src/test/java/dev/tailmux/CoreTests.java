@@ -22,6 +22,7 @@ final class CoreTests extends TestMain {
         testTmuxNoServerClassifierAcceptsTmuxPhrasing();
         testProductParsingAvoidsRegexHelpers();
         testControlPathAvoidsStreamPipelines();
+        testTmuxCommandsAvoidListWrappers();
     }
 
     private void testWorkspaceNameValidation() {
@@ -95,5 +96,10 @@ final class CoreTests extends TestMain {
                 "src/main/java/dev/tailmux/cli/WorkspaceService.java")) {
             check(!Files.readString(Path.of(file)).contains(".stream()"), file + " avoids stream pipelines");
         }
+    }
+
+    private void testTmuxCommandsAvoidListWrappers() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxCommands.java"));
+        check(!source.contains("List.of("), "tmux command construction avoids List.of wrappers");
     }
 }

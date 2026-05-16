@@ -18,13 +18,19 @@ public final class PosixShell {
 
     public static String join(List<String> args) {
         StringBuilder builder = new StringBuilder();
-        for (String arg : args) {
-            if (!builder.isEmpty()) {
-                builder.append(' ');
-            }
-            builder.append(quote(arg));
-        }
+        for (String arg : args) append(builder, arg);
         return builder.toString();
+    }
+
+    public static String join(String... args) {
+        StringBuilder builder = new StringBuilder();
+        for (String arg : args) append(builder, arg);
+        return builder.toString();
+    }
+
+    private static void append(StringBuilder builder, String arg) {
+        if (!builder.isEmpty()) builder.append(' ');
+        builder.append(quote(arg));
     }
 
     private static boolean isSafeUnquoted(String value) {
