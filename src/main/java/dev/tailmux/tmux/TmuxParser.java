@@ -48,6 +48,7 @@ public final class TmuxParser {
                 throw new IllegalArgumentException("invalid tmux window row: " + printable(line));
             }
             MutableSession session = sessions.get(parts[0]);
+            // tmux can report rows from stale/racing state; keep discovery useful by ignoring rows whose parent is absent.
             if (session != null) {
                 MutableWindow window = new MutableWindow(parseInt(parts[1]), parts[2], parts[3], "1".equals(parts[4]));
                 session.windows.add(window);
@@ -61,6 +62,7 @@ public final class TmuxParser {
                 throw new IllegalArgumentException("invalid tmux pane row: " + printable(line));
             }
             MutableWindow window = windows.get(windowKey(parts[0], parseInt(parts[1])));
+            // Same rule as windows: orphan pane rows are ignored, not promoted into phantom sessions.
             if (window != null) {
                 window.panes.add(new TmuxPane(parseInt(parts[2]), parts[3], parts[4], parts[5], "1".equals(parts[6])));
             }

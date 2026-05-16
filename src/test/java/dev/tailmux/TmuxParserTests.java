@@ -14,7 +14,12 @@ final class TmuxParserTests {
     static void run(TestMain tests) throws Exception {
         testTmuxParsing(tests);
         testTmuxPaneParsing(tests);
+        testEmptyAndWeirdSessionFixtures(tests);
+        testOrphanWindowsAndPanesAreIgnored(tests);
+        testBlankPaneFieldsRemainBlank(tests);
+        testDiscoveryOutputSplitsMarkers(tests);
         testMalformedRowsFail(tests);
+        testMalformedRowsPrintDelimiters(tests);
     }
 
     private static void testTmuxParsing(TestMain tests) throws Exception {
@@ -44,14 +49,72 @@ final class TmuxParserTests {
 
     private static void testMalformedRowsFail(TestMain tests) {
         tests.expectThrows(IllegalArgumentException.class,
-                () -> TmuxParser.parse(NodeId.parse("office-a"), "default", "broken\n", "", Instant.now()),
+                () -> TmuxParser.parse(NodeId.parse("office-a"), "default", fixture("malformed-session-row.txt"), "", Instant.now()),
                 "malformed session row fails");
         tests.expectThrows(IllegalArgumentException.class,
-                () -> TmuxParser.parse(NodeId.parse("office-a"), "default", "work\u001F$1\u001F0\u001F1\u001F2\n", "broken\n", Instant.now()),
+                () -> TmuxParser.parse(NodeId.parse("office-a"), "default", "work\u001F$1\u001F0\u001F1\u001F2\n", fixture("malformed-window-row.txt"), Instant.now()),
                 "malformed window row fails");
         tests.expectThrows(IllegalArgumentException.class,
-                () -> TmuxParser.parse(NodeId.parse("office-a"), "default", "work\u001F$1\u001F0\u001F1\u001F2\n", "work\u001F0\u001F@0\u001Fzsh\u001F1\n", "broken\n", Instant.now()),
+                () -> TmuxParser.parse(NodeId.parse("office-a"), "default", "work\u001F$1\u001F0\u001F1\u001F2\n", "work\u001F0\u001F@0\u001Fzsh\u001F1\n", fixture("malformed-pane-row.txt"), Instant.now()),
                 "malformed pane row fails");
+    }
+
+    private static void testEmptyAndWeirdSessionFixtures(TestMain tests) throws Exception {
+        var empty = TmuxParser.parse(NodeId.parse("office-a"), "default", fixture("list-sessions-empty.txt"), "", Instant.now());
+        tests.check(empty.sessions().isEmpty(), "empty session fixture parses as no sessions");
+
+        var snapshot = TmuxParser.parse(NodeId.parse("office-a"), "sock",
+                fixture("list-sessions-weird.txt"),
+                fixture("list-windows-orphan.txt"),
+                Instant.parse("2026-05-15T19:02:13Z"));
+
+        tests.check(snapshot.sessions().size() == 2, "parses punctuation session names");
+        tests.check(snapshot.sessions().getFirst().socket().equals("sock"), "parser preserves socket");
+        tests.check(snapshot.sessions().getFirst().windows().getFirst().name().equals("main.shell"), "parses punctuation window names");
+    }
+
+    private static void testOrphanWindowsAndPanesAreIgnored(TestMain tests) throws Exception {
+        var snapshot = TmuxParser.parse(NodeId.parse("office-a"), "default",
+                "work\u001F$1\u001F1\u001F1\u001F2\n",
+                "missing\u001F0\u001F@9\u001Forphan\u001F1\nwork\u001F0\u001F@1\u001Fmain\u001F1\n",
+                "missing\u001F0\u001F0\u001F%9\u001F/tmp\u001Fzsh\u001F1\nwork\u001F0\u001F0\u001F%1\u001F/tmp\u001Fzsh\u001F1\n",
+                Instant.parse("2026-05-15T19:02:13Z"));
+
+        tests.check(snapshot.sessions().getFirst().windows().size() == 1, "orphan window is ignored");
+        tests.check(snapshot.sessions().getFirst().windows().getFirst().panes().size() == 1, "orphan pane is ignored");
+    }
+
+    private static void testBlankPaneFieldsRemainBlank(TestMain tests) throws Exception {
+        var snapshot = TmuxParser.parse(NodeId.parse("office-a"), "default",
+                "work\u001F$1\u001F1\u001F1\u001F2\n",
+                "work\u001F0\u001F@0\u001Feditor\u001F1\n",
+                fixture("list-panes-blank-fields.txt"),
+                Instant.parse("2026-05-15T19:02:13Z"));
+        var pane = snapshot.sessions().getFirst().windows().getFirst().panes().getFirst();
+
+        tests.check(pane.currentPath().isEmpty(), "blank pane cwd stays blank");
+        tests.check(pane.currentCommand().isEmpty(), "blank pane command stays blank");
+        tests.check(pane.active(), "blank pane row still parses active flag");
+    }
+
+    private static void testDiscoveryOutputSplitsMarkers(TestMain tests) {
+        String output = "sessions\n" + dev.tailmux.tmux.TmuxCommands.DISCOVERY_WINDOWS_MARKER + "\nwindows\n"
+                + dev.tailmux.tmux.TmuxCommands.DISCOVERY_PANES_MARKER + "\npanes\n";
+
+        var split = TmuxParser.splitDiscoveryOutput(output);
+
+        tests.check(split.sessions().equals("sessions"), "discovery split extracts sessions");
+        tests.check(split.windows().equals("windows"), "discovery split extracts windows");
+        tests.check(split.panes().equals("panes\n"), "discovery split preserves pane payload");
+    }
+
+    private static void testMalformedRowsPrintDelimiters(TestMain tests) throws Exception {
+        try {
+            TmuxParser.parse(NodeId.parse("office-a"), "default", "broken\u001Frow\n", "", Instant.now());
+            tests.check(false, "malformed row with delimiter fails");
+        } catch (IllegalArgumentException e) {
+            tests.check(e.getMessage().contains("broken|row"), "malformed row prints delimiters visibly");
+        }
     }
 
     private static String fixture(String name) throws Exception {
