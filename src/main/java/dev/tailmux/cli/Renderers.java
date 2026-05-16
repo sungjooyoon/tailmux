@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.util.List;
 
 public final class Renderers {
+    private static final TmuxPane EMPTY_PANE = new TmuxPane(0, "", "", "", false);
+
     private Renderers() {
     }
 
@@ -69,16 +71,34 @@ public final class Renderers {
     }
 
     private static String row(String a, String b, String c, String d) {
-        return String.format("%-9s %-10s %-10s %s", a, b, c, d);
+        StringBuilder row = new StringBuilder(48);
+        cell(row, a, 9);
+        cell(row, b, 10);
+        cell(row, c, 10);
+        return row.append(d).toString();
     }
 
     private static String row(String a, String b, String c, String d, String e, String f) {
-        return String.format("%-9s %-10s %-9s %-9s %-10s %s", a, b, c, d, e, f);
+        StringBuilder row = new StringBuilder(72);
+        cell(row, a, 9);
+        cell(row, b, 10);
+        cell(row, c, 9);
+        cell(row, d, 9);
+        cell(row, e, 10);
+        return row.append(f).toString();
+    }
+
+    private static void cell(StringBuilder row, String value, int width) {
+        row.append(value);
+        for (int spaces = value.length(); spaces < width; spaces++) row.append(' ');
+        row.append(' ');
     }
 
     private static TmuxPane activePane(TmuxWindow window) {
-        return window.panes().stream().filter(TmuxPane::active).findFirst()
-                .orElseGet(() -> window.panes().isEmpty() ? new TmuxPane(0, "", "", "", false) : window.panes().getFirst());
+        for (TmuxPane pane : window.panes()) {
+            if (pane.active()) return pane;
+        }
+        return window.panes().isEmpty() ? EMPTY_PANE : window.panes().getFirst();
     }
 
     private static String valueOrDash(String value) {

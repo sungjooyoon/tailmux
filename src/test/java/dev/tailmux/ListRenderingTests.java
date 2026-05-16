@@ -7,6 +7,8 @@ import dev.tailmux.exec.FakeRemoteExecutor;
 import dev.tailmux.state.PropertiesStateStore;
 import dev.tailmux.tmux.TmuxCommands;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -20,6 +22,7 @@ final class ListRenderingTests extends TestMain {
         testListWindowsRendersActivePaneMetadata();
         testListWindowsAvoidsFullPaneDiscovery();
         testListPanesRendersPaneRows();
+        testRendererAvoidsFormatterAndStreams();
     }
 
     private void testListRendersLiveWindowCounts() throws Exception {
@@ -92,5 +95,11 @@ final class ListRenderingTests extends TestMain {
         check(exit == ExitCodes.SUCCESS, "ls --panes exits success");
         check(console.out().contains("office-a:work.0.1"), "ls --panes renders pane selector");
         check(console.out().contains("/tmp"), "ls --panes renders pane cwd");
+    }
+
+    private void testRendererAvoidsFormatterAndStreams() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/Renderers.java"));
+        check(!source.contains("String.format"), "renderer avoids Formatter for fixed-width rows");
+        check(!source.contains(".stream()"), "renderer avoids streams in row hot paths");
     }
 }
