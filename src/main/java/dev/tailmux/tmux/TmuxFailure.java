@@ -17,9 +17,9 @@ public final class TmuxFailure {
     public static Kind classify(ExecResult result) {
         if (result.ok()) return Kind.OK;
         if (remoteExecution(result)) return Kind.REMOTE_EXECUTION;
+        if (result.exitCode() == 127) return Kind.MISSING_BINARY;
         String text = (result.stderr() + "\n" + result.stdout()).toLowerCase();
-        if (result.exitCode() == 127
-                || text.contains("tmux: command not found")
+        if (text.contains("tmux: command not found")
                 || text.contains("tmux: not found")
                 || text.contains("command not found: tmux")) {
             return Kind.MISSING_BINARY;

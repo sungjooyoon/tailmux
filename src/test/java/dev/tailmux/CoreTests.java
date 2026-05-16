@@ -79,6 +79,7 @@ final class CoreTests extends TestMain {
         check(TmuxFailure.classify(ExecResult.failure(255, "", "ssh failed")) == TmuxFailure.Kind.REMOTE_EXECUTION, "classifies remote execution failure");
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxFailure.java"));
         check(source.indexOf("toLowerCase") == source.lastIndexOf("toLowerCase"), "tmux failure classification folds text once");
+        check(source.indexOf("result.exitCode() == 127") < source.indexOf("toLowerCase"), "tmux failure classifier checks numeric exits before folding text");
     }
 
     private void testTmuxDiscoveryShortCircuits() {
