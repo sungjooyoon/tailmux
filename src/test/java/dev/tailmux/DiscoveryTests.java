@@ -28,6 +28,7 @@ final class DiscoveryTests extends TestMain {
         testListScansConfiguredSockets();
         testListDiscoversNodesConcurrently();
         testDiscoveryWorkerFailureIsReported();
+        testDiscoveryLoadsCachedSnapshotOnce();
     }
 
     private void testOfflineCachedRendering() throws Exception {
@@ -160,5 +161,10 @@ final class DiscoveryTests extends TestMain {
 
         check(exit == ExitCodes.GENERAL_FAILURE, "discovery worker failure exits general failure");
         check(console.err().contains("FAIL discovery: worker exploded"), "discovery worker failure preserves cause");
+    }
+
+    private void testDiscoveryLoadsCachedSnapshotOnce() throws Exception {
+        String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DiscoveryService.java"));
+        check(source.indexOf("store.loadSnapshot(") == source.lastIndexOf("store.loadSnapshot("), "discovery loads cached snapshot once per node path");
     }
 }

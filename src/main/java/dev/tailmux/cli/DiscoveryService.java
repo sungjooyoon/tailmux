@@ -78,34 +78,34 @@ final class DiscoveryService {
     }
 
     private NodeSnapshot discoverOrCached(NodeConfig node, boolean includeWindows, boolean includePanes) {
-        Optional<NodeSnapshot> recentOffline = recentOfflineSnapshot(node);
-        if (recentOffline.isPresent()) return recentOffline.get().withStatus(NodeStatus.OFFLINE);
-        NodeSnapshot snapshot = discover(node, includeWindows, includePanes);
+        Optional<NodeSnapshot> cached = store.loadSnapshot(node.id());
+        if (recentOffline(cached)) return cached.get().withStatus(NodeStatus.OFFLINE);
+        NodeSnapshot snapshot = discover(node, includeWindows, includePanes, cached);
         if (snapshot.status() == NodeStatus.ONLINE || snapshot.status() == NodeStatus.NO_TMUX) {
             return snapshot;
         }
-        return store.loadSnapshot(node.id())
-                .map(cached -> cached.withStatus(NodeStatus.OFFLINE))
+        return cached
+                .map(value -> value.withStatus(NodeStatus.OFFLINE))
                 .orElse(snapshot.withStatus(NodeStatus.OFFLINE));
     }
 
-    private NodeSnapshot discover(NodeConfig node, boolean includeWindows, boolean includePanes) {
+    private NodeSnapshot discover(NodeConfig node, boolean includeWindows, boolean includePanes, Optional<NodeSnapshot> cached) {
         Instant now = clock.instant();
         try {
             ArrayList<TmuxSession> sessions = new ArrayList<>();
             for (String socket : node.sockets()) {
                 ExecResult discovery = remote.execute(node, discoveryCommand(socket, includeWindows, includePanes));
                 if (TmuxFailure.missingBinary(discovery)) {
-                    return failureSnapshot(node, NodeStatus.NO_TMUX, now);
+                    return failureSnapshot(node, NodeStatus.NO_TMUX, now, cached);
                 }
                 if (TmuxFailure.remoteExecution(discovery)) {
-                    return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
+                    return failureSnapshot(node, NodeStatus.SSH_FAILED, now, cached);
                 }
                 if (TmuxFailure.noServer(discovery)) {
                     continue;
                 }
                 if (!discovery.ok()) {
-                    return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
+                    return failureSnapshot(node, NodeStatus.SSH_FAILED, now, cached);
                 }
                 TmuxParser.DiscoveryOutput output = includeWindows
                         ? TmuxParser.splitDiscoveryOutput(discovery.stdout())
@@ -117,7 +117,7 @@ final class DiscoveryService {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
+            return failureSnapshot(node, NodeStatus.SSH_FAILED, now, cached);
         }
     }
 
@@ -126,8 +126,8 @@ final class DiscoveryService {
         return includeWindows ? TmuxCommands.discoverWindows(socket) : TmuxCommands.listSessions(socket);
     }
 
-    private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now) {
-        return store.loadSnapshot(node.id())
+    private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now, Optional<NodeSnapshot> cached) {
+        return cached
                 .filter(snapshot -> !snapshot.sessions().isEmpty())
                 .map(snapshot -> snapshot.withStatus(NodeStatus.OFFLINE))
                 .orElseGet(() -> save(new NodeSnapshot(node.id(), status, now, List.of())));
@@ -138,12 +138,11 @@ final class DiscoveryService {
         return snapshot;
     }
 
-    private Optional<NodeSnapshot> recentOfflineSnapshot(NodeConfig node) {
-        return store.loadSnapshot(node.id())
-                .filter(snapshot -> snapshot.status() == NodeStatus.SSH_FAILED || snapshot.status() == NodeStatus.OFFLINE)
-                .filter(snapshot -> {
-                    Duration age = Duration.between(snapshot.lastSeenAt(), clock.instant());
-                    return !age.isNegative() && age.compareTo(RECENT_OFFLINE_TTL) <= 0;
-                });
+    private boolean recentOffline(Optional<NodeSnapshot> cached) {
+        if (cached.isEmpty()) return false;
+        NodeSnapshot snapshot = cached.get();
+        if (snapshot.status() != NodeStatus.SSH_FAILED && snapshot.status() != NodeStatus.OFFLINE) return false;
+        Duration age = Duration.between(snapshot.lastSeenAt(), clock.instant());
+        return !age.isNegative() && age.compareTo(RECENT_OFFLINE_TTL) <= 0;
     }
 }
