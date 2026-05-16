@@ -11,11 +11,11 @@ import dev.tailmux.exec.ExecResult;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 public final class TmuxParser {
     private static final String SEP = "\u001F";
+    private static final char SEP_CHAR = '\u001F';
 
     private TmuxParser() {
     }
@@ -29,7 +29,7 @@ public final class TmuxParser {
         Map<String, MutableWindow> windows = new LinkedHashMap<>();
         boolean hasFullPaneRows = panesOutput != null && !panesOutput.isBlank();
         for (String line : lines(sessionsOutput)) {
-            String[] parts = line.split(SEP, -1);
+            String[] parts = fields(line);
             if (parts.length < 5) {
                 throw new IllegalArgumentException("invalid tmux session row: " + printable(line));
             }
@@ -45,7 +45,7 @@ public final class TmuxParser {
         }
 
         for (String line : lines(windowsOutput)) {
-            String[] parts = line.split(SEP, -1);
+            String[] parts = fields(line);
             if (parts.length < 5) {
                 throw new IllegalArgumentException("invalid tmux window row: " + printable(line));
             }
@@ -62,7 +62,7 @@ public final class TmuxParser {
         }
 
         for (String line : lines(panesOutput)) {
-            String[] parts = line.split(SEP, -1);
+            String[] parts = fields(line);
             if (parts.length < 7) {
                 throw new IllegalArgumentException("invalid tmux pane row: " + printable(line));
             }
@@ -95,8 +95,24 @@ public final class TmuxParser {
         return TmuxFailure.noServer(result);
     }
 
-    private static List<String> lines(String output) {
-        return output == null ? List.of() : output.lines().filter(line -> !line.isBlank()).toList();
+    private static Iterable<String> lines(String output) {
+        if (output == null || output.isBlank()) {
+            return () -> java.util.Collections.emptyIterator();
+        }
+        return () -> output.lines().filter(line -> !line.isBlank()).iterator();
+    }
+
+    private static String[] fields(String line) {
+        ArrayList<String> parts = new ArrayList<>(8);
+        int start = 0;
+        for (int i = 0; i < line.length(); i++) {
+            if (line.charAt(i) == SEP_CHAR) {
+                parts.add(line.substring(start, i));
+                start = i + 1;
+            }
+        }
+        parts.add(line.substring(start));
+        return parts.toArray(String[]::new);
     }
 
     private static long parseLong(String value) {
@@ -116,7 +132,7 @@ public final class TmuxParser {
     }
 
     private static String printable(String line) {
-        return line.replace(SEP, "|");
+        return line.replace(SEP_CHAR, '|');
     }
 
     private static String windowKey(String session, int index) {
