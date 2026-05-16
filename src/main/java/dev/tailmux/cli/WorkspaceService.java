@@ -64,11 +64,9 @@ final class WorkspaceService {
 
         ArrayList<NodeSession> matches = new ArrayList<>();
         ArrayList<NodeConfig> healthy = new ArrayList<>();
-        List<NodeConfig> nodes = config.nodeConfigs();
-        List<NodeSnapshot> snapshots = discovery.discoverAll(nodes, true);
-        for (int i = 0; i < snapshots.size(); i++) {
-            NodeSnapshot snapshot = snapshots.get(i);
-            NodeConfig node = nodes.get(i);
+        for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), true)) {
+            NodeSnapshot snapshot = discovered.snapshot();
+            NodeConfig node = discovered.node();
             if (snapshot.status() == NodeStatus.ONLINE) {
                 healthy.add(node);
                 for (TmuxSession session : snapshot.sessions()) {

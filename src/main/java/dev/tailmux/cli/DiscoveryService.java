@@ -37,12 +37,18 @@ final class DiscoveryService {
     }
 
     List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows) {
+        return discoverNodes(nodes, includeWindows).stream().map(DiscoveredNode::snapshot).toList();
+    }
+
+    List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows) {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<NodeSnapshot>> futures = nodes.stream().map(node -> executor.submit(() -> discoverOrCached(node, includeWindows))).toList();
-            ArrayList<NodeSnapshot> snapshots = new ArrayList<>();
-            for (Future<NodeSnapshot> future : futures) {
+            List<Future<DiscoveredNode>> futures = nodes.stream()
+                    .map(node -> executor.submit(() -> new DiscoveredNode(node, discoverOrCached(node, includeWindows))))
+                    .toList();
+            ArrayList<DiscoveredNode> discovered = new ArrayList<>();
+            for (Future<DiscoveredNode> future : futures) {
                 try {
-                    snapshots.add(future.get());
+                    discovered.add(future.get());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new TailmuxException(ExitCodes.GENERAL_FAILURE, "FAIL discovery interrupted", e);
@@ -51,7 +57,7 @@ final class DiscoveryService {
                     throw new TailmuxException(ExitCodes.GENERAL_FAILURE, "FAIL discovery: " + cause.getMessage(), cause);
                 }
             }
-            return List.copyOf(snapshots);
+            return List.copyOf(discovered);
         }
     }
 
