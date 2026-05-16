@@ -130,7 +130,7 @@ final class WorkspaceService {
         if (result.ok()) return;
         if (result.exitCode() == 255) {
             throw new TailmuxException(ExitCodes.REMOTE_EXECUTION_ERROR,
-                    "FAIL " + node.id().value() + ": tailscale ssh could not execute remote command.\nTry:\n  tailscale ssh " + node.host() + " 'echo ok'");
+                    "FAIL " + node.id().value() + ": tailscale ssh could not execute remote command.\nTry:\n  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
         }
         throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": remote tmux not found");
     }

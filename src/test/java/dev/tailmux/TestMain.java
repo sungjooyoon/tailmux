@@ -71,6 +71,7 @@ public final class TestMain {
         testListWindowsRendersActivePaneMetadata();
         testListPanesRendersPaneRows();
         testAttachPaneSelectsWindowAndPane();
+        testAttachFailureSuggestsConfiguredSshTarget();
         testDoctorClassification();
         testDoctorClassifiesMagicDnsFailure();
         testDoctorNetworkUsesSafeReadOnlyProbes();
@@ -429,6 +430,25 @@ public final class TestMain {
         check(exit == ExitCodes.SUCCESS, "pane attach exits success");
         check(remote.commandsFor("office-a").contains(TmuxCommands.selectPane("default", "work", 2, 1)), "pane attach selects pane");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L default attach-session -t work")), "pane attach uses selected session");
+    }
+
+    private void testAttachFailureSuggestsConfiguredSshTarget() throws Exception {
+        Properties p = new Properties();
+        p.setProperty("tailmux.user", "sungjooyoon");
+        p.setProperty("tailmux.home.pool", "sungjoos-mac-studio");
+        p.setProperty("tailmux.node.sungjoos-mac-studio.user", "sjy-2");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("sungjoos-mac-studio", "command -v tmux", ExecResult.failure(255, "", "ssh failed"));
+
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
+                Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), console)
+                .run(List.of("attach", "sungjoos-mac-studio:work"));
+
+        check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "attach ssh failure exits remote error");
+        check(console.err().contains("tailscale ssh sjy-2@sungjoos-mac-studio 'echo ok'"), "attach ssh failure suggests configured target");
     }
 
     private void testListUsesSingleDiscoveryCommandPerNode() throws Exception {
