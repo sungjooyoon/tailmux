@@ -14,24 +14,24 @@ public final class FakeRemoteExecutor implements RemoteExecutor {
     private final Map<String, ArrayList<String>> commands = new LinkedHashMap<String, ArrayList<String>> ();
     private final ArrayList<String> interactive = new ArrayList<String> ();
 
-    public void when(String node, String command, ExecResult result) {
+    public synchronized void when(String node, String command, ExecResult result) {
         responses.put(key(node, command), result);
     }
 
-    public void failNode(String node, ExecResult result) {
+    public synchronized void failNode(String node, ExecResult result) {
         nodeFailures.put(node, result);
     }
 
-    public List<String> commandsFor(String node) {
+    public synchronized List<String> commandsFor(String node) {
         return List.copyOf(commands.getOrDefault(node, new ArrayList<String> ()));
     }
 
-    public List<String> interactiveCommands() {
+    public synchronized List<String> interactiveCommands() {
         return List.copyOf(interactive);
     }
 
     @Override
-    public ExecResult execute(NodeConfig node, String command) {
+    public synchronized ExecResult execute(NodeConfig node, String command) {
         commands.computeIfAbsent(node.id().value(), ignored -> new ArrayList<String> ()).add(command);
         ExecResult nodeFailure = nodeFailures.get(node.id().value());
         if (nodeFailure != null) {
@@ -62,7 +62,7 @@ public final class FakeRemoteExecutor implements RemoteExecutor {
     }
 
     @Override
-    public int attachInteractive(NodeConfig node, String command) {
+    public synchronized int attachInteractive(NodeConfig node, String command) {
         interactive.add(node.id().value() + ":" + command);
         return 0;
     }
