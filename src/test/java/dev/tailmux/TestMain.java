@@ -159,6 +159,12 @@ public class TestMain {
         }
 
         @Override
+        public int inherit(List<String> command) {
+            commands.add(command);
+            return 0;
+        }
+
+        @Override
         public boolean commandExists(String command) {
             return true;
         }

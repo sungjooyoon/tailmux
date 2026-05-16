@@ -24,7 +24,9 @@ public class LocalProcess {
         if (!finished) {
             process.destroyForcibly();
             process.waitFor();
-            return ExecResult.failure(124, "", "command timed out after " + timeout.toSeconds() + "s");
+            String out = new String(join(stdout), StandardCharsets.UTF_8);
+            String err = new String(join(stderr), StandardCharsets.UTF_8);
+            return ExecResult.failure(124, out, ("command timed out after " + timeout.toSeconds() + "s\n" + err).stripTrailing());
         }
         int exit = process.exitValue();
         return new ExecResult(exit, new String(join(stdout), StandardCharsets.UTF_8), new String(join(stderr), StandardCharsets.UTF_8));
