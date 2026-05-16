@@ -21,6 +21,7 @@ final class DoctorTests extends TestMain {
         testDoctorClassifiesAuthFailure();
         testDoctorClassifiesSshTimeout();
         testDoctorClassifiesMissingRemoteTmux();
+        testDoctorChecksRemoteNodesConcurrently();
         testDoctorNetworkUsesSafeReadOnlyProbes();
         testDoctorNetworkChecksLocalToolsOnce();
         testDoctorNetworkTreatsDerpPongAsReachable();
@@ -106,6 +107,21 @@ final class DoctorTests extends TestMain {
         check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "doctor missing remote tmux exits remote error");
         check(console.out().contains("FAIL  office-a remote tmux missing"), "doctor classifies missing remote tmux");
         check(console.out().contains("tailscale ssh office-a 'command -v tmux'"), "doctor missing remote tmux gives safe check");
+    }
+
+    private void testDoctorChecksRemoteNodesConcurrently() throws Exception {
+        Properties p = new Properties();
+        p.setProperty("tailmux.home.pool", "office-a,office-b");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+
+        long started = System.nanoTime();
+        int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")),
+                new DelayingRemoteExecutor(java.time.Duration.ofMillis(500)), Clock.systemUTC(), new CapturingConsole())
+                .run(List.of("doctor"));
+        long elapsedMillis = java.time.Duration.ofNanos(System.nanoTime() - started).toMillis();
+
+        check(exit == ExitCodes.SUCCESS, "doctor concurrent remote check exits success");
+        check(elapsedMillis < 2200, "doctor checks remote nodes concurrently");
     }
 
     private void testDoctorNetworkUsesSafeReadOnlyProbes() throws Exception {
