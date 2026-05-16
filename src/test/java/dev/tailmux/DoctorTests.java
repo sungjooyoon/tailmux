@@ -22,6 +22,7 @@ final class DoctorTests extends TestMain {
         testDoctorClassifiesSshTimeout();
         testDoctorClassifiesMissingRemoteTmux();
         testDoctorNetworkUsesSafeReadOnlyProbes();
+        testDoctorNetworkChecksLocalToolsOnce();
         testDoctorNetworkTreatsDerpPongAsReachable();
         testDoctorNetworkChecksTailscaleDnsForFqdnOnly();
     }
@@ -139,6 +140,28 @@ final class DoctorTests extends TestMain {
 
         check(exit == ExitCodes.SUCCESS, "network doctor derp pong exits success");
         check(console.out().contains("OK    office-a tailscale ping"), "network doctor treats derp pong as reachable");
+    }
+
+    private void testDoctorNetworkChecksLocalToolsOnce() throws Exception {
+        Properties p = new Properties();
+        p.setProperty("tailmux.home.pool", "office-a,office-b");
+        p.setProperty("tailmux.node.office-a.host", "office-a.tail.ts.net");
+        p.setProperty("tailmux.node.office-b.host", "office-b.tail.ts.net");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+        FakeLocalProcess process = new FakeLocalProcess();
+        process.when(List.of("tailscale", "status"), ExecResult.success("ok\n"));
+        for (String host : List.of("office-a.tail.ts.net", "office-b.tail.ts.net")) {
+            process.when(List.of("tailscale", "ping", "--c=1", host), ExecResult.success("pong\n"));
+            process.when(List.of("dscacheutil", "-q", "host", "-a", "name", host), ExecResult.success("name: " + host + "\n"));
+            process.when(List.of("dig", "@100.100.100.100", host), ExecResult.success(host + ". 600 IN A 100.0.0.1\n"));
+        }
+
+        int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")), new FakeRemoteExecutor(),
+                Clock.systemUTC(), new CapturingConsole(), process).run(List.of("doctor", "--network"));
+
+        check(exit == ExitCodes.SUCCESS, "network doctor local tool cache exits success");
+        check(process.existsChecks().stream().filter("dscacheutil"::equals).count() == 1, "network doctor checks dscacheutil once");
+        check(process.existsChecks().stream().filter("dig"::equals).count() == 1, "network doctor checks dig once");
     }
 
     private void testDoctorNetworkChecksTailscaleDnsForFqdnOnly() throws Exception {

@@ -86,13 +86,15 @@ final class DoctorCommand {
             console.out("Try:");
             console.out("  tailscale status");
         }
+        boolean hasDscacheutil = localProcess.commandExists("dscacheutil");
+        boolean hasDig = localProcess.commandExists("dig");
         for (NodeConfig node : config.nodeConfigs()) {
-            networkNode(node);
+            networkNode(node, hasDscacheutil, hasDig);
         }
         return failed ? ExitCodes.REMOTE_EXECUTION_ERROR : ExitCodes.SUCCESS;
     }
 
-    private void networkNode(NodeConfig node) throws IOException, InterruptedException {
+    private void networkNode(NodeConfig node, boolean hasDscacheutil, boolean hasDig) throws IOException, InterruptedException {
         String host = node.host();
         ExecResult ping = localProcess.capture(List.of("tailscale", "ping", "--c=1", host), Duration.ofSeconds(6));
         if (pingReachable(ping)) {
@@ -102,7 +104,7 @@ final class DoctorCommand {
             console.out("Try:");
             console.out("  tailscale ping --c=1 " + host);
         }
-        if (localProcess.commandExists("dscacheutil")) {
+        if (hasDscacheutil) {
             ExecResult resolver = localProcess.capture(List.of("dscacheutil", "-q", "host", "-a", "name", host));
             if (resolver.ok() && !resolver.stdout().isBlank()) {
                 console.out("OK    " + node.id().value() + " macOS resolver resolved host");
@@ -112,7 +114,7 @@ final class DoctorCommand {
                 console.out("  dscacheutil -q host -a name " + host);
             }
         }
-        if (shouldCheckTailscaleDns(host) && localProcess.commandExists("dig")) {
+        if (shouldCheckTailscaleDns(host) && hasDig) {
             ExecResult dns = localProcess.capture(List.of("dig", "@100.100.100.100", host));
             if (dns.ok() && dns.stdout().contains(" IN A")) {
                 console.out("OK    " + node.id().value() + " tailscale dns resolved host");

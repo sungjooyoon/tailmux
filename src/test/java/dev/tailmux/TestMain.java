@@ -138,6 +138,7 @@ public class TestMain {
     static final class FakeLocalProcess extends LocalProcess {
         private final java.util.Map<List<String>, ExecResult> responses = new LinkedHashMap<>();
         private final java.util.ArrayList<List<String>> commands = new java.util.ArrayList<>();
+        private final java.util.ArrayList<String> existsChecks = new java.util.ArrayList<>();
 
         void when(List<String> command, ExecResult result) {
             responses.put(command, result);
@@ -145,6 +146,10 @@ public class TestMain {
 
         List<List<String>> commands() {
             return List.copyOf(commands);
+        }
+
+        List<String> existsChecks() {
+            return List.copyOf(existsChecks);
         }
 
         @Override
@@ -166,6 +171,7 @@ public class TestMain {
 
         @Override
         public boolean commandExists(String command) {
+            existsChecks.add(command);
             return true;
         }
     }
