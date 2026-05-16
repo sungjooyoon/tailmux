@@ -64,7 +64,7 @@ final class WorkspaceService {
 
         ArrayList<NodeSession> matches = new ArrayList<>();
         ArrayList<NodeConfig> healthy = new ArrayList<>();
-        for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), true)) {
+        for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), false)) {
             NodeSnapshot snapshot = discovered.snapshot();
             NodeConfig node = discovered.node();
             if (snapshot.status() == NodeStatus.ONLINE) {

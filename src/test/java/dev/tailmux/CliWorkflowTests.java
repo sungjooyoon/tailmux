@@ -22,6 +22,7 @@ final class CliWorkflowTests extends TestMain {
     void run() throws Exception {
         testCommandRouting();
         testWorkspaceCreatesOnDefaultHome();
+        testWorkspaceDiscoverySkipsWindowAndPaneMetadata();
         testRegistryOwnerUnreachableDoesNotCreateDuplicate();
         testDuplicateDiscoveredWorkspaceFails();
         testDiscoveredWorkspaceRemembersSocket();
@@ -59,6 +60,20 @@ final class CliWorkflowTests extends TestMain {
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L default attach-session -t work")), "interactive attach command");
         check(Files.exists(home.resolve(".tailmux/state/workspaces/work.properties")), "workspace registered");
         check(!remote.commandsFor("office-a").contains("command -v tmux"), "start avoids redundant tmux binary probe after discovery");
+    }
+
+    private void testWorkspaceDiscoverySkipsWindowAndPaneMetadata() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success(""));
+        remote.when("office-a", TmuxCommands.ensureSession("default", "work"), ExecResult.success(""));
+
+        int exit = router(configWithOneNode(), remote, tempDir()).run(List.of("work"));
+
+        check(exit == ExitCodes.SUCCESS, "workspace shorthand exits success");
+        check(remote.commandsFor("office-a").equals(List.of(
+                TmuxCommands.listSessions("default"),
+                TmuxCommands.ensureSession("default", "work")
+        )), "workspace shorthand scans sessions only before create");
     }
 
     private void testRegistryOwnerUnreachableDoesNotCreateDuplicate() throws Exception {
