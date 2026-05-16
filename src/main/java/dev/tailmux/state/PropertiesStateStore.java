@@ -15,12 +15,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class PropertiesStateStore {
+    private static final Set<String> EVENT_FIELDS = Set.of("command", "node", "session", "socket", "status", "transport", "workspace");
     private final Path stateDir;
 
     public PropertiesStateStore(Path stateDir) {
@@ -158,6 +163,24 @@ public final class PropertiesStateStore {
         write(stateDir.resolve("snapshots").resolve(snapshot.node().value() + ".properties"), p);
     }
 
+    public void appendEvent(Instant at, String event, Map<String, String> fields) {
+        try {
+            Files.createDirectories(stateDir.resolve("events"));
+            String line = "timestamp=" + clean(at.toString())
+                    + " event=" + clean(event)
+                    + fields.entrySet().stream()
+                    .filter(entry -> EVENT_FIELDS.contains(entry.getKey()))
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(entry -> " " + entry.getKey() + "=" + clean(entry.getValue()))
+                    .collect(Collectors.joining())
+                    + "\n";
+            Files.writeString(stateDir.resolve("events").resolve(at.toString().substring(0, 10) + ".log"),
+                    line, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL state: could not write event log: " + e.getMessage(), e);
+        }
+    }
+
     private Properties load(Path path) {
         Properties p = new Properties();
         try (InputStream in = Files.newInputStream(path)) {
@@ -190,5 +213,9 @@ public final class PropertiesStateStore {
         } catch (NumberFormatException e) {
             return fallback;
         }
+    }
+
+    private static String clean(String value) {
+        return value == null ? "" : value.replaceAll("[\\r\\n\\t]", "_");
     }
 }

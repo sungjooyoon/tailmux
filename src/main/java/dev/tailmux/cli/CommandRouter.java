@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -67,6 +68,7 @@ public final class CommandRouter {
         try {
             store.ensureWritable();
             ParsedCommand parsed = classify(args);
+            store.appendEvent(clock.instant(), "command", Map.of("command", parsed.command()));
             return switch (parsed.command()) {
                 case "doctor" -> parsed.args().contains("--network") ? doctorNetwork() : doctor();
                 case "nodes" -> nodes();
@@ -322,6 +324,13 @@ public final class CommandRouter {
 
     private int rememberAndAttach(String header, WorkspaceName workspace, NodeConfig node, String session, String socket, Instant createdAt) throws IOException, InterruptedException {
         store.saveWorkspace(workspace.value(), node.id(), session, socket, createdAt, clock.instant());
+        store.appendEvent(clock.instant(), "workspace", Map.of(
+                "workspace", workspace.value(),
+                "node", node.id().value(),
+                "socket", socket,
+                "session", session,
+                "transport", "ssh"
+        ));
         printWorkspace(header, workspace.value(), node.id());
         return attach(node, socket, session);
     }

@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 public final class TestMain {
@@ -51,12 +52,14 @@ public final class TestMain {
         testTmuxParsing();
         testTmuxPaneParsing();
         testStateRoundTrip();
+        testEventLogRedactsUnapprovedFields();
         testCommandRouting();
         testWorkspaceCreatesOnDefaultHome();
         testRegistryOwnerUnreachableDoesNotCreateDuplicate();
         testDuplicateDiscoveredWorkspaceFails();
         testDiscoveredWorkspaceRemembersSocket();
         testRegisteredWorkspaceUsesStoredSocket();
+        testWorkspaceAttachWritesEventMetadata();
         testOfflineCachedRendering();
         testTimeoutDoesNotRenderAsNoTmux();
         testTimeoutWritesOfflineSnapshot();
@@ -199,6 +202,21 @@ public final class TestMain {
         check(Files.exists(home.resolve(".tailmux/state/workspaces/work.properties")), "workspace file exists");
     }
 
+    private void testEventLogRedactsUnapprovedFields() throws Exception {
+        Path home = tempDir();
+        PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
+        store.appendEvent(Instant.parse("2026-05-15T19:02:13Z"), "diagnostic",
+                Map.of("command", "doctor", "node", "office-a\nbad", "stdout", "secret output", "token", "secret"));
+
+        String log = Files.readString(home.resolve(".tailmux/state/events/2026-05-15.log"));
+
+        check(log.contains("event=diagnostic"), "event log writes event type");
+        check(log.contains("command=doctor"), "event log writes approved field");
+        check(log.contains("node=office-a_bad"), "event log sanitizes newlines");
+        check(!log.contains("secret"), "event log redacts unapproved fields");
+        check(!log.contains("stdout"), "event log skips command output key");
+    }
+
     private void testCommandRouting() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
         TailmuxConfig config = configWithPool();
@@ -290,6 +308,26 @@ public final class TestMain {
 
         check(exit == ExitCodes.SUCCESS, "registered socket workspace exits success");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L work attach-session -t modal")), "registered workspace uses stored socket");
+    }
+
+    private void testWorkspaceAttachWritesEventMetadata() throws Exception {
+        Path home = tempDir();
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
+        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(1, "", "no server running"));
+        remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success(""));
+        remote.when("office-a", TmuxCommands.hasSession("default", "work"), ExecResult.failure(1, "", "missing"));
+        remote.when("office-a", TmuxCommands.newSession("default", "work"), ExecResult.success(""));
+
+        int exit = router(configWithOneNode(), remote, home).run(List.of("work"));
+        String log = Files.readString(home.resolve(".tailmux/state/events/2026-05-15.log"));
+
+        check(exit == ExitCodes.SUCCESS, "workspace event attach exits success");
+        check(log.contains("event=workspace"), "workspace event logged");
+        check(log.contains("workspace=work"), "workspace event logs workspace");
+        check(log.contains("node=office-a"), "workspace event logs node");
+        check(log.contains("socket=default"), "workspace event logs socket");
+        check(log.contains("session=work"), "workspace event logs session");
     }
 
     private void testOfflineCachedRendering() throws Exception {
