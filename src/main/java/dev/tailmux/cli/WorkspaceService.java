@@ -156,6 +156,16 @@ final class WorkspaceService {
     }
 
     private String resolveSessionSocket(NodeConfig node, String session) throws IOException, InterruptedException {
+        if (node.sockets().size() == 1) {
+            String socket = node.sockets().getFirst();
+            ExecResult result = remote.execute(node, TmuxCommands.hasSession(socket, session));
+            if (result.ok()) return socket;
+            if (TmuxFailure.remoteExecution(result) || TmuxFailure.missingBinary(result)) {
+                throw classifyTmuxCommandFailure(node, "could not find tmux session " + session, result);
+            }
+            throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": tmux session not found on configured sockets: " + session);
+        }
+
         ArrayList<String> matches = new ArrayList<>();
         for (String socket : node.sockets()) {
             ExecResult result = remote.execute(node, TmuxCommands.listSessions(socket));

@@ -29,6 +29,7 @@ final class CliWorkflowTests extends TestMain {
         testRegisteredWorkspaceUsesStoredSocket();
         testRegisteredWorkspaceMissingSessionRecreatesOnlyOnOwner();
         testExplicitHomeMustBeHealthy();
+        testAttachSelectorSingleSocketUsesHasSession();
         testAttachSelectorFindsNonDefaultSocket();
         testAttachSelectorRejectsAmbiguousSocket();
         testWorkspaceAttachWritesEventMetadata();
@@ -163,6 +164,17 @@ final class CliWorkflowTests extends TestMain {
         check(!remote.commandsFor("office-a").contains(TmuxCommands.newSession("default", "work")), "explicit unhealthy home does not create on fallback");
     }
 
+    private void testAttachSelectorSingleSocketUsesHasSession() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", TmuxCommands.hasSession("default", "work"), ExecResult.success(""));
+
+        int exit = router(configWithOneNode(), remote, tempDir()).run(List.of("attach", "office-a:work"));
+
+        check(exit == ExitCodes.SUCCESS, "single-socket selector attach exits success");
+        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.hasSession("default", "work"))), "single-socket selector uses has-session only");
+        check(remote.interactiveCommands().equals(List.of("office-a:tmux -L default attach-session -t work")), "single-socket selector attaches default socket");
+    }
+
     private void testAttachSelectorFindsNonDefaultSocket() throws Exception {
         Properties p = new Properties();
         p.setProperty("tailmux.home.pool", "office-a");
@@ -218,13 +230,13 @@ final class CliWorkflowTests extends TestMain {
 
     private void testAttachPaneSelectsWindowAndPane() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
+        remote.when("office-a", TmuxCommands.hasSession("default", "work"), ExecResult.success(""));
         remote.when("office-a", TmuxCommands.selectWindowAndPane("default", "work", 2, 1), ExecResult.success(""));
 
         int exit = router(configWithOneNode(), remote, tempDir()).run(List.of("attach", "office-a:work.2.1"));
 
         check(exit == ExitCodes.SUCCESS, "pane attach exits success");
-        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.listSessions("default"), TmuxCommands.selectWindowAndPane("default", "work", 2, 1))), "pane attach selects window and pane in one remote command");
+        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.hasSession("default", "work"), TmuxCommands.selectWindowAndPane("default", "work", 2, 1))), "pane attach selects window and pane in one remote command");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L default attach-session -t work")), "pane attach uses selected session");
     }
 
@@ -236,7 +248,7 @@ final class CliWorkflowTests extends TestMain {
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
 
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("sungjoos-mac-studio", TmuxCommands.listSessions("default"), ExecResult.failure(255, "", "ssh failed"));
+        remote.when("sungjoos-mac-studio", TmuxCommands.hasSession("default", "work"), ExecResult.failure(255, "", "ssh failed"));
 
         CapturingConsole console = new CapturingConsole();
         int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
