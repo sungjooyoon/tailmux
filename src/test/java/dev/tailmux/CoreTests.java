@@ -17,6 +17,7 @@ final class CoreTests extends TestMain {
         testWorkspaceNameValidation();
         testSelectorParsing();
         testShellQuoting();
+        testShellQuotingAvoidsReplaceHelper();
         testTmuxEnsureSessionIsRaceTolerant();
         testTmuxDiscoveryShortCircuits();
         testTmuxNoServerClassifierAcceptsTmuxPhrasing();
@@ -55,6 +56,11 @@ final class CoreTests extends TestMain {
         check(PosixShell.quote("a'b").equals("'a'\"'\"'b'"), "single quote escaped");
         check(PosixShell.join(List.of("tmux", "new-session", "-d", "-s", "work space"))
                 .equals("tmux new-session -d -s 'work space'"), "join quotes only needed args");
+    }
+
+    private void testShellQuotingAvoidsReplaceHelper() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/exec/PosixShell.java"));
+        check(!source.contains(".replace("), "shell quoting avoids replace helper");
     }
 
     private void testTmuxEnsureSessionIsRaceTolerant() {

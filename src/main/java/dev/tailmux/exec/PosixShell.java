@@ -13,7 +13,17 @@ public final class PosixShell {
         if (isSafeUnquoted(value)) {
             return value;
         }
-        return "'" + value.replace("'", "'\"'\"'") + "'";
+        int quote = value.indexOf('\'');
+        if (quote < 0) return "'" + value + "'";
+
+        StringBuilder escaped = new StringBuilder(value.length() + 8).append('\'');
+        int start = 0;
+        while (quote >= 0) {
+            escaped.append(value, start, quote).append("'\"'\"'");
+            start = quote + 1;
+            quote = value.indexOf('\'', start);
+        }
+        return escaped.append(value, start, value.length()).append('\'').toString();
     }
 
     public static String join(List<String> args) {
