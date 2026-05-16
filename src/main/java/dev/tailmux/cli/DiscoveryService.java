@@ -37,8 +37,7 @@ final class DiscoveryService {
     }
 
     List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows) {
-        ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, nodes.size()));
-        try {
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<NodeSnapshot>> futures = nodes.stream().map(node -> executor.submit(() -> discoverOrCached(node, includeWindows))).toList();
             ArrayList<NodeSnapshot> snapshots = new ArrayList<>();
             for (Future<NodeSnapshot> future : futures) {
@@ -53,8 +52,6 @@ final class DiscoveryService {
                 }
             }
             return List.copyOf(snapshots);
-        } finally {
-            executor.shutdownNow();
         }
     }
 

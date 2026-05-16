@@ -32,13 +32,13 @@ final class WorkspaceService {
     private final Console console;
     private final DiscoveryService discovery;
 
-    WorkspaceService(TailmuxConfig config, PropertiesStateStore store, RemoteExecutor remote, Clock clock, Console console) {
+    WorkspaceService(TailmuxConfig config, PropertiesStateStore store, RemoteExecutor remote, Clock clock, Console console, DiscoveryService discovery) {
         this.config = config;
         this.store = store;
         this.remote = remote;
         this.clock = clock;
         this.console = console;
-        this.discovery = new DiscoveryService(store, remote, clock);
+        this.discovery = discovery;
     }
 
     int attachCommand(List<String> args) throws IOException, InterruptedException {

@@ -23,6 +23,8 @@ public final class CommandRouter {
     private final Clock clock;
     private final Console console;
     private final LocalProcess localProcess;
+    private final DiscoveryService discovery;
+    private final WorkspaceService workspace;
 
     public CommandRouter(TailmuxConfig config, PropertiesStateStore store, RemoteExecutor remote, Clock clock, Console console) {
         this(config, store, remote, clock, console, new LocalProcess());
@@ -35,6 +37,8 @@ public final class CommandRouter {
         this.clock = clock;
         this.console = console;
         this.localProcess = localProcess;
+        this.discovery = new DiscoveryService(store, remote, clock);
+        this.workspace = new WorkspaceService(config, store, remote, clock, console, discovery);
     }
 
     public ParsedCommand classify(List<String> args) {
@@ -57,9 +61,9 @@ public final class CommandRouter {
                 case "doctor" -> new DoctorCommand(config, remote, localProcess, console).run(parsed.args().contains("--network"));
                 case "nodes" -> nodes();
                 case "ls" -> list(parsed.args().contains("--windows") || parsed.args().contains("--panes"), parsed.args().contains("--panes"));
-                case "attach" -> workspace().attachCommand(parsed.args());
-                case "start" -> workspace().startCommand(parsed.args(), parsed.home());
-                case "workspace" -> workspace().smartWorkspace(WorkspaceName.parse(parsed.args().getFirst()), Optional.empty());
+                case "attach" -> workspace.attachCommand(parsed.args());
+                case "start" -> workspace.startCommand(parsed.args(), parsed.home());
+                case "workspace" -> workspace.smartWorkspace(WorkspaceName.parse(parsed.args().getFirst()), Optional.empty());
                 default -> usage();
             };
         } catch (TailmuxException e) {
@@ -104,20 +108,12 @@ public final class CommandRouter {
     }
 
     private int nodes() {
-        Renderers.renderNodes(console, config, discovery().discoverAll(config.nodeConfigs(), false), clock);
+        Renderers.renderNodes(console, config, discovery.discoverAll(config.nodeConfigs(), false), clock);
         return ExitCodes.SUCCESS;
     }
 
     private int list(boolean includeWindows, boolean includePanes) {
-        Renderers.renderLs(console, discovery().discoverAll(config.nodeConfigs(), true), clock, includeWindows, includePanes);
+        Renderers.renderLs(console, discovery.discoverAll(config.nodeConfigs(), true), clock, includeWindows, includePanes);
         return ExitCodes.SUCCESS;
-    }
-
-    private DiscoveryService discovery() {
-        return new DiscoveryService(store, remote, clock);
-    }
-
-    private WorkspaceService workspace() {
-        return new WorkspaceService(config, store, remote, clock, console);
     }
 }

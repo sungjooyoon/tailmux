@@ -25,7 +25,7 @@ final class ExecutionTests extends TestMain {
     private void testLocalProcessTimeout() throws Exception {
         ExecResult result = new LocalProcess().capture(List.of("sh", "-lc", "sleep 2"), Duration.ofMillis(50));
         check(result.exitCode() == 124, "timeout exit code");
-        check(result.stderr().contains("timed out"), "timeout error text");
+        check(result.stderr().contains("timed out after 50ms"), "timeout error text includes useful duration");
     }
 
     private void testLocalProcessTimeoutPreservesPartialOutput() throws Exception {
