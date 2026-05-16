@@ -47,11 +47,9 @@ final class CliWorkflowTests extends TestMain {
 
     private void testWorkspaceCreatesOnDefaultHome() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
         remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(1, "", "no server running on /tmp/tmux"));
         remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success(""));
-        remote.when("office-a", TmuxCommands.hasSession("default", "work"), ExecResult.failure(1, "", "can't find session"));
-        remote.when("office-a", TmuxCommands.newSession("default", "work"), ExecResult.success(""));
+        remote.when("office-a", TmuxCommands.ensureSession("default", "work"), ExecResult.success(""));
 
         Path home = tempDir();
         CommandRouter router = router(configWithPool(), remote, home);
@@ -60,6 +58,7 @@ final class CliWorkflowTests extends TestMain {
         check(exit == ExitCodes.SUCCESS, "start exits success");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L default attach-session -t work")), "interactive attach command");
         check(Files.exists(home.resolve(".tailmux/state/workspaces/work.properties")), "workspace registered");
+        check(!remote.commandsFor("office-a").contains("command -v tmux"), "start avoids redundant tmux binary probe after discovery");
     }
 
     private void testRegistryOwnerUnreachableDoesNotCreateDuplicate() throws Exception {
@@ -69,7 +68,6 @@ final class CliWorkflowTests extends TestMain {
 
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
         remote.failNode("office-a", ExecResult.failure(255, "", "ssh failed"));
-        remote.when("office-b", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
 
         int exit = router(configWithPool(), remote, home).run(List.of("work"));
         check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "unreachable owner exits remote error");
@@ -80,7 +78,6 @@ final class CliWorkflowTests extends TestMain {
     private void testDuplicateDiscoveredWorkspaceFails() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
         for (String node : List.of("office-a", "office-b")) {
-            remote.when(node, "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
             remote.when(node, TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
             remote.when(node, TmuxCommands.listWindows("default"), ExecResult.success(""));
         }
@@ -115,13 +112,13 @@ final class CliWorkflowTests extends TestMain {
         store.saveWorkspace("modal", NodeId.parse("office-a"), "modal", "work", Instant.now(), Instant.now());
 
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
-        remote.when("office-a", TmuxCommands.hasSession("work", "modal"), ExecResult.success(""));
+        remote.when("office-a", TmuxCommands.ensureSession("work", "modal"), ExecResult.success(""));
 
         int exit = router(configWithOneNode(), remote, home).run(List.of("modal"));
 
         check(exit == ExitCodes.SUCCESS, "registered socket workspace exits success");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L work attach-session -t modal")), "registered workspace uses stored socket");
+        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.ensureSession("work", "modal"))), "registered workspace uses one remote session transaction before attach");
     }
 
     private void testRegisteredWorkspaceMissingSessionRecreatesOnlyOnOwner() throws Exception {
@@ -130,15 +127,12 @@ final class CliWorkflowTests extends TestMain {
         store.saveWorkspace("work", NodeId.parse("office-a"), "work", "default", Instant.now(), Instant.now());
 
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
-        remote.when("office-a", TmuxCommands.hasSession("default", "work"), ExecResult.failure(1, "", "missing"));
-        remote.when("office-a", TmuxCommands.newSession("default", "work"), ExecResult.success(""));
-        remote.when("office-b", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
+        remote.when("office-a", TmuxCommands.ensureSession("default", "work"), ExecResult.success(""));
 
         int exit = router(configWithPool(), remote, home).run(List.of("work"));
 
         check(exit == ExitCodes.SUCCESS, "registered missing session recreates on owner");
-        check(remote.commandsFor("office-a").contains(TmuxCommands.newSession("default", "work")), "registered missing session creates on owner");
+        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.ensureSession("default", "work"))), "registered missing session uses one create-if-missing transaction");
         check(remote.commandsFor("office-b").isEmpty(), "registered missing session does not scan alternate node");
     }
 
@@ -160,7 +154,6 @@ final class CliWorkflowTests extends TestMain {
         p.setProperty("tailmux.node.office-a.sockets", "default,work");
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
         remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(1, "", "no server running"));
         remote.when("office-a", TmuxCommands.listSessions("work"), ExecResult.success("modal\u001F\u00242\u001F0\u001F1\u001F2\n"));
 
@@ -168,6 +161,7 @@ final class CliWorkflowTests extends TestMain {
 
         check(exit == ExitCodes.SUCCESS, "attach selector finds non-default socket");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L work attach-session -t modal")), "attach selector uses resolved socket");
+        check(!remote.commandsFor("office-a").contains("command -v tmux"), "attach selector resolves socket without redundant tmux binary probe");
     }
 
     private void testAttachSelectorRejectsAmbiguousSocket() throws Exception {
@@ -176,7 +170,6 @@ final class CliWorkflowTests extends TestMain {
         p.setProperty("tailmux.node.office-a.sockets", "default,work");
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
         remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("modal\u001F\u00241\u001F0\u001F1\u001F2\n"));
         remote.when("office-a", TmuxCommands.listSessions("work"), ExecResult.success("modal\u001F\u00242\u001F0\u001F1\u001F2\n"));
 
@@ -193,11 +186,9 @@ final class CliWorkflowTests extends TestMain {
     private void testWorkspaceAttachWritesEventMetadata() throws Exception {
         Path home = tempDir();
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
         remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(1, "", "no server running"));
         remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success(""));
-        remote.when("office-a", TmuxCommands.hasSession("default", "work"), ExecResult.failure(1, "", "missing"));
-        remote.when("office-a", TmuxCommands.newSession("default", "work"), ExecResult.success(""));
+        remote.when("office-a", TmuxCommands.ensureSession("default", "work"), ExecResult.success(""));
 
         int exit = router(configWithOneNode(), remote, home).run(List.of("work"));
         String log = Files.readString(home.resolve(".tailmux/state/events/2026-05-15.log"));
@@ -212,15 +203,13 @@ final class CliWorkflowTests extends TestMain {
 
     private void testAttachPaneSelectsWindowAndPane() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
         remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
-        remote.when("office-a", TmuxCommands.selectWindow("default", "work", 2), ExecResult.success(""));
-        remote.when("office-a", TmuxCommands.selectPane("default", "work", 2, 1), ExecResult.success(""));
+        remote.when("office-a", TmuxCommands.selectWindowAndPane("default", "work", 2, 1), ExecResult.success(""));
 
         int exit = router(configWithOneNode(), remote, tempDir()).run(List.of("attach", "office-a:work.2.1"));
 
         check(exit == ExitCodes.SUCCESS, "pane attach exits success");
-        check(remote.commandsFor("office-a").contains(TmuxCommands.selectPane("default", "work", 2, 1)), "pane attach selects pane");
+        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.listSessions("default"), TmuxCommands.selectWindowAndPane("default", "work", 2, 1))), "pane attach selects window and pane in one remote command");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L default attach-session -t work")), "pane attach uses selected session");
     }
 
@@ -232,7 +221,7 @@ final class CliWorkflowTests extends TestMain {
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
 
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("sungjoos-mac-studio", "command -v tmux", ExecResult.failure(255, "", "ssh failed"));
+        remote.when("sungjoos-mac-studio", TmuxCommands.listSessions("default"), ExecResult.failure(255, "", "ssh failed"));
 
         CapturingConsole console = new CapturingConsole();
         int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,

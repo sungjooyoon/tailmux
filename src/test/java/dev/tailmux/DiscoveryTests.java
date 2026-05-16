@@ -55,7 +55,7 @@ final class DiscoveryTests extends TestMain {
 
     private void testTimeoutDoesNotRenderAsNoTmux() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.failure(124, "", "command timed out after 10s"));
+        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(124, "", "command timed out after 10s"));
 
         CapturingConsole console = new CapturingConsole();
         int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
@@ -71,7 +71,7 @@ final class DiscoveryTests extends TestMain {
         var home = tempDir();
         PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.failure(124, "", "command timed out after 10s"));
+        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(124, "", "command timed out after 10s"));
 
         int exit = new CommandRouter(configWithOneNode(), store, remote,
                 Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), new CapturingConsole())

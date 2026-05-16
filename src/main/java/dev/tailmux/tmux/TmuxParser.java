@@ -87,8 +87,7 @@ public final class TmuxParser {
     }
 
     public static boolean isNoServer(ExecResult result) {
-        String text = (result.stderr() + "\n" + result.stdout()).toLowerCase();
-        return result.exitCode() != 0 && (text.contains("no server") || text.contains("no tmux server"));
+        return TmuxFailure.noServer(result);
     }
 
     private static List<String> lines(String output) {

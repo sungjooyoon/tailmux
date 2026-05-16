@@ -46,6 +46,10 @@ public final class TmuxCommands {
         return PosixShell.join(List.of("tmux", "-L", socket, "new-session", "-d", "-s", session));
     }
 
+    public static String ensureSession(String socket, String session) {
+        return hasSession(socket, session) + " || " + newSession(socket, session) + " || " + hasSession(socket, session);
+    }
+
     public static String attachSession(String socket, String session) {
         return PosixShell.join(List.of("tmux", "-L", socket, "attach-session", "-t", session));
     }
@@ -56,5 +60,9 @@ public final class TmuxCommands {
 
     public static String selectPane(String socket, String session, int window, int pane) {
         return PosixShell.join(List.of("tmux", "-L", socket, "select-pane", "-t", session + ":" + window + "." + pane));
+    }
+
+    public static String selectWindowAndPane(String socket, String session, int window, int pane) {
+        return selectWindow(socket, session, window) + " && " + selectPane(socket, session, window, pane);
     }
 }

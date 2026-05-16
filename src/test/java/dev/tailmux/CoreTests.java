@@ -2,7 +2,10 @@ package dev.tailmux;
 
 import dev.tailmux.core.Selector;
 import dev.tailmux.core.WorkspaceName;
+import dev.tailmux.exec.ExecResult;
 import dev.tailmux.exec.PosixShell;
+import dev.tailmux.tmux.TmuxCommands;
+import dev.tailmux.tmux.TmuxFailure;
 
 import java.util.List;
 
@@ -12,6 +15,8 @@ final class CoreTests extends TestMain {
         testWorkspaceNameValidation();
         testSelectorParsing();
         testShellQuoting();
+        testTmuxEnsureSessionIsRaceTolerant();
+        testTmuxNoServerClassifierAcceptsTmuxPhrasing();
     }
 
     private void testWorkspaceNameValidation() {
@@ -44,5 +49,15 @@ final class CoreTests extends TestMain {
         check(PosixShell.quote("a'b").equals("'a'\"'\"'b'"), "single quote escaped");
         check(PosixShell.join(List.of("tmux", "new-session", "-d", "-s", "work space"))
                 .equals("tmux new-session -d -s 'work space'"), "join quotes only needed args");
+    }
+
+    private void testTmuxEnsureSessionIsRaceTolerant() {
+        String command = TmuxCommands.ensureSession("default", "work");
+        check(command.indexOf("has-session") != command.lastIndexOf("has-session"), "ensure session retries has-session after create race");
+        check(command.contains(" || "), "ensure session stays one shell transaction");
+    }
+
+    private void testTmuxNoServerClassifierAcceptsTmuxPhrasing() {
+        check(TmuxFailure.noServer(ExecResult.failure(1, "", "failed to connect to server")), "classifies tmux failed-to-connect as no server");
     }
 }

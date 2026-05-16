@@ -6,7 +6,7 @@ import dev.tailmux.exec.ExecResult;
 import dev.tailmux.exec.LocalProcess;
 import dev.tailmux.exec.RemoteExecutor;
 import dev.tailmux.tmux.TmuxCommands;
-import dev.tailmux.tmux.TmuxParser;
+import dev.tailmux.tmux.TmuxFailure;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -62,7 +62,7 @@ final class DoctorCommand {
             for (String socket : node.sockets()) {
                 ExecResult sessions = remote.execute(node, TmuxCommands.listSessions(socket));
                 String label = node.id().value() + " tmux " + socket + " list-sessions";
-                if (TmuxParser.isNoServer(sessions)) {
+                if (TmuxFailure.noServer(sessions)) {
                     console.out("WARN  " + node.id().value() + " tmux " + socket + " no server currently running");
                 } else if (!sessions.ok()) {
                     failed = true;

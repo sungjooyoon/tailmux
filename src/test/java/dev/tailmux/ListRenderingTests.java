@@ -22,7 +22,6 @@ final class ListRenderingTests extends TestMain {
 
     private void testListRendersLiveWindowCounts() throws Exception {
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
         remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
         remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success("work\u001F0\u001F@1\u001Feditor\u001F1\n"));
 

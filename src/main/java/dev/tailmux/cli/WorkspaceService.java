@@ -14,6 +14,7 @@ import dev.tailmux.exec.ExecResult;
 import dev.tailmux.exec.RemoteExecutor;
 import dev.tailmux.state.PropertiesStateStore;
 import dev.tailmux.tmux.TmuxCommands;
+import dev.tailmux.tmux.TmuxFailure;
 import dev.tailmux.tmux.TmuxParser;
 
 import java.io.IOException;
@@ -57,7 +58,6 @@ final class WorkspaceService {
         if (registered.isPresent()) {
             Workspace workspace = registered.get();
             NodeConfig node = config.node(workspace.home());
-            ensureTmuxAvailable(node);
             ensureSession(node, workspace.socket(), workspace.session());
             return rememberAndAttach("Found existing workspace:", workspace.name(), node, workspace.session(), workspace.socket(), workspace.createdAt());
         }
@@ -93,18 +93,16 @@ final class WorkspaceService {
 
     private int attachSelector(Selector selector) throws IOException, InterruptedException {
         NodeConfig node = config.node(selector.node());
-        ensureTmuxAvailable(node);
         String socket = resolveSessionSocket(node, selector.session());
-        if (selector.window().isPresent()) {
+        if (selector.pane().isPresent()) {
+            ExecResult select = remote.execute(node, TmuxCommands.selectWindowAndPane(socket, selector.session(), selector.window().orElseThrow(), selector.pane().get()));
+            if (!select.ok()) {
+                throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": could not select tmux pane: " + select.errorText());
+            }
+        } else if (selector.window().isPresent()) {
             ExecResult select = remote.execute(node, TmuxCommands.selectWindow(socket, selector.session(), selector.window().get()));
             if (!select.ok()) {
                 throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": could not select tmux window: " + select.errorText());
-            }
-        }
-        if (selector.pane().isPresent()) {
-            ExecResult select = remote.execute(node, TmuxCommands.selectPane(socket, selector.session(), selector.window().orElseThrow(), selector.pane().get()));
-            if (!select.ok()) {
-                throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": could not select tmux pane: " + select.errorText());
             }
         }
         return attach(node, socket, selector.session());
@@ -123,23 +121,10 @@ final class WorkspaceService {
                 .orElseThrow(() -> new TailmuxException(ExitCodes.NO_HEALTHY_HOME_NODE, "FAIL no healthy home node is available"));
     }
 
-    private void ensureTmuxAvailable(NodeConfig node) throws IOException, InterruptedException {
-        ExecResult result = remote.execute(node, "command -v tmux");
-        if (result.ok()) return;
-        if (result.exitCode() == 255) {
-            throw new TailmuxException(ExitCodes.REMOTE_EXECUTION_ERROR,
-                    "FAIL " + node.id().value() + ": tailscale ssh could not execute remote command.\nTry:\n  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
-        }
-        throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": remote tmux not found");
-    }
-
     private void ensureSession(NodeConfig node, String socket, String session) throws IOException, InterruptedException {
-        ExecResult has = remote.execute(node, TmuxCommands.hasSession(socket, session));
-        if (has.ok()) return;
-        ExecResult created = remote.execute(node, TmuxCommands.newSession(socket, session));
-        if (!created.ok()) {
-            throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": could not create tmux session " + session + ": " + created.errorText());
-        }
+        ExecResult result = remote.execute(node, TmuxCommands.ensureSession(socket, session));
+        if (result.ok()) return;
+        throw classifyTmuxCommandFailure(node, "could not ensure tmux session " + session, result);
     }
 
     private int rememberAndAttach(String header, WorkspaceName workspace, NodeConfig node, String session, String socket, Instant createdAt) throws IOException, InterruptedException {
@@ -174,9 +159,9 @@ final class WorkspaceService {
         ArrayList<String> matches = new ArrayList<>();
         for (String socket : node.sockets()) {
             ExecResult result = remote.execute(node, TmuxCommands.listSessions(socket));
-            if (TmuxParser.isNoServer(result)) continue;
+            if (TmuxFailure.noServer(result)) continue;
             if (!result.ok()) {
-                throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": could not list tmux sessions: " + result.errorText());
+                throw classifyTmuxCommandFailure(node, "could not list tmux sessions", result);
             }
             NodeSnapshot snapshot = TmuxParser.parse(node.id(), socket, result.stdout(), "", clock.instant());
             if (snapshot.sessions().stream().anyMatch(candidate -> candidate.name().equals(session))) {
@@ -190,6 +175,17 @@ final class WorkspaceService {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL " + node.id().value() + ": session " + session + " exists on multiple sockets; use a Tailmux workspace or remove the ambiguity");
         }
         return matches.getFirst();
+    }
+
+    private TailmuxException classifyTmuxCommandFailure(NodeConfig node, String action, ExecResult result) {
+        if (TmuxFailure.remoteExecution(result)) {
+            return new TailmuxException(ExitCodes.REMOTE_EXECUTION_ERROR,
+                    "FAIL " + node.id().value() + ": tailscale ssh could not execute remote command.\nTry:\n  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+        }
+        if (TmuxFailure.missingBinary(result)) {
+            return new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": remote tmux not found");
+        }
+        return new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": " + action + ": " + result.errorText());
     }
 
     private String firstArg(List<String> args, String label) {

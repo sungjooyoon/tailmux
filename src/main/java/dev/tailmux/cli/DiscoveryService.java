@@ -9,6 +9,7 @@ import dev.tailmux.exec.ExecResult;
 import dev.tailmux.exec.RemoteExecutor;
 import dev.tailmux.state.PropertiesStateStore;
 import dev.tailmux.tmux.TmuxCommands;
+import dev.tailmux.tmux.TmuxFailure;
 import dev.tailmux.tmux.TmuxParser;
 
 import java.io.IOException;
@@ -81,13 +82,13 @@ final class DiscoveryService {
                 ExecResult discovery = remote.execute(node, includeWindows
                         ? TmuxCommands.discover(socket)
                         : TmuxCommands.listSessions(socket));
-                if (isTmuxMissing(discovery)) {
+                if (TmuxFailure.missingBinary(discovery)) {
                     return failureSnapshot(node, NodeStatus.NO_TMUX, now);
                 }
-                if (discovery.exitCode() == 255 || discovery.exitCode() == 124) {
+                if (TmuxFailure.remoteExecution(discovery)) {
                     return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
                 }
-                if (TmuxParser.isNoServer(discovery)) {
+                if (TmuxFailure.noServer(discovery)) {
                     continue;
                 }
                 if (!discovery.ok()) {
@@ -105,14 +106,6 @@ final class DiscoveryService {
             }
             return failureSnapshot(node, NodeStatus.SSH_FAILED, now);
         }
-    }
-
-    private boolean isTmuxMissing(ExecResult result) {
-        String text = (result.stderr() + "\n" + result.stdout()).toLowerCase();
-        return result.exitCode() == 127
-                || text.contains("tmux: command not found")
-                || text.contains("tmux: not found")
-                || text.contains("command not found: tmux");
     }
 
     private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now) {
