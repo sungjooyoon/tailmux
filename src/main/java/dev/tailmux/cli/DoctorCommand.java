@@ -114,42 +114,63 @@ final class DoctorCommand {
         }
         boolean hasDscacheutil = localProcess.commandExists("dscacheutil");
         boolean hasDig = localProcess.commandExists("dig");
-        for (NodeConfig node : config.nodeConfigs()) {
-            networkNode(node, hasDscacheutil, hasDig);
+        for (NodeDoctorResult result : checkNetworkNodes(hasDscacheutil, hasDig)) {
+            result.lines().forEach(console::out);
+            failed = failed || result.failed();
         }
         return failed ? ExitCodes.REMOTE_EXECUTION_ERROR : ExitCodes.SUCCESS;
     }
 
-    private void networkNode(NodeConfig node, boolean hasDscacheutil, boolean hasDig) throws IOException, InterruptedException {
+    private List<NodeDoctorResult> checkNetworkNodes(boolean hasDscacheutil, boolean hasDig) throws InterruptedException {
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<NodeDoctorResult>> futures = config.nodeConfigs().stream()
+                    .map(node -> executor.submit(() -> networkNode(node, hasDscacheutil, hasDig)))
+                    .toList();
+            ArrayList<NodeDoctorResult> results = new ArrayList<>();
+            for (Future<NodeDoctorResult> future : futures) {
+                try {
+                    results.add(future.get());
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause() == null ? e : e.getCause();
+                    results.add(new NodeDoctorResult(true, List.of("FAIL  network diagnostic failed: " + cause.getMessage())));
+                }
+            }
+            return results;
+        }
+    }
+
+    private NodeDoctorResult networkNode(NodeConfig node, boolean hasDscacheutil, boolean hasDig) throws IOException, InterruptedException {
+        ArrayList<String> lines = new ArrayList<>();
         String host = node.host();
         ExecResult ping = localProcess.capture(List.of("tailscale", "ping", "--c=1", host), Duration.ofSeconds(6));
         if (pingReachable(ping)) {
-            console.out("OK    " + node.id().value() + " tailscale ping");
+            lines.add("OK    " + node.id().value() + " tailscale ping");
         } else {
-            console.out("WARN  " + node.id().value() + " tailscale ping failed: " + ping.errorText());
-            console.out("Try:");
-            console.out("  tailscale ping --c=1 " + host);
+            lines.add("WARN  " + node.id().value() + " tailscale ping failed: " + ping.errorText());
+            lines.add("Try:");
+            lines.add("  tailscale ping --c=1 " + host);
         }
         if (hasDscacheutil) {
             ExecResult resolver = localProcess.capture(List.of("dscacheutil", "-q", "host", "-a", "name", host));
             if (resolver.ok() && !resolver.stdout().isBlank()) {
-                console.out("OK    " + node.id().value() + " macOS resolver resolved host");
+                lines.add("OK    " + node.id().value() + " macOS resolver resolved host");
             } else {
-                console.out("WARN  " + node.id().value() + " macOS resolver did not resolve host");
-                console.out("Try:");
-                console.out("  dscacheutil -q host -a name " + host);
+                lines.add("WARN  " + node.id().value() + " macOS resolver did not resolve host");
+                lines.add("Try:");
+                lines.add("  dscacheutil -q host -a name " + host);
             }
         }
         if (shouldCheckTailscaleDns(host) && hasDig) {
             ExecResult dns = localProcess.capture(List.of("dig", "@100.100.100.100", host));
             if (dns.ok() && dns.stdout().contains(" IN A")) {
-                console.out("OK    " + node.id().value() + " tailscale dns resolved host");
+                lines.add("OK    " + node.id().value() + " tailscale dns resolved host");
             } else {
-                console.out("WARN  " + node.id().value() + " tailscale dns did not resolve host");
-                console.out("Try:");
-                console.out("  dig @100.100.100.100 " + host);
+                lines.add("WARN  " + node.id().value() + " tailscale dns did not resolve host");
+                lines.add("Try:");
+                lines.add("  dig @100.100.100.100 " + host);
             }
         }
+        return new NodeDoctorResult(false, lines);
     }
 
     private List<String> sshFailureLines(NodeConfig node, ExecResult result) {

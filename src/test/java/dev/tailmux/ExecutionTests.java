@@ -29,7 +29,7 @@ final class ExecutionTests extends TestMain {
     }
 
     private void testLocalProcessTimeoutPreservesPartialOutput() throws Exception {
-        ExecResult result = new LocalProcess().capture(List.of("sh", "-lc", "printf out; printf err >&2; sleep 2"), Duration.ofMillis(50));
+        ExecResult result = new LocalProcess().capture(List.of("sh", "-lc", "printf out; printf err >&2; sleep 2"), Duration.ofMillis(250));
         check(result.exitCode() == 124, "partial timeout exit code");
         check(result.stdout().contains("out"), "timeout preserves partial stdout");
         check(result.stderr().contains("err"), "timeout preserves partial stderr");

@@ -24,6 +24,7 @@ final class DoctorTests extends TestMain {
         testDoctorClassifiesMissingRemoteTmux();
         testDoctorChecksRemoteNodesConcurrently();
         testDoctorNetworkUsesSafeReadOnlyProbes();
+        testDoctorNetworkChecksNodesConcurrently();
         testDoctorNetworkChecksLocalToolsOnce();
         testDoctorNetworkTreatsDerpPongAsReachable();
         testDoctorNetworkChecksTailscaleDnsForFqdnOnly();
@@ -153,6 +154,30 @@ final class DoctorTests extends TestMain {
         check(!process.commands().toString().contains("down"), "network doctor does not run tailscale down");
         check(!process.commands().toString().contains("up"), "network doctor does not run tailscale up");
         check(!process.commands().toString().contains("set"), "network doctor does not run tailscale set");
+    }
+
+    private void testDoctorNetworkChecksNodesConcurrently() throws Exception {
+        Properties p = new Properties();
+        p.setProperty("tailmux.home.pool", "office-a,office-b");
+        p.setProperty("tailmux.node.office-a.host", "office-a.tail.ts.net");
+        p.setProperty("tailmux.node.office-b.host", "office-b.tail.ts.net");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+        FakeLocalProcess process = new FakeLocalProcess();
+        process.delayCaptures(java.time.Duration.ofMillis(250));
+        process.when(List.of("tailscale", "status"), ExecResult.success("ok\n"));
+        for (String host : List.of("office-a.tail.ts.net", "office-b.tail.ts.net")) {
+            process.when(List.of("tailscale", "ping", "--c=1", host), ExecResult.success("pong\n"));
+            process.when(List.of("dscacheutil", "-q", "host", "-a", "name", host), ExecResult.success("name: " + host + "\n"));
+            process.when(List.of("dig", "@100.100.100.100", host), ExecResult.success(host + ". 600 IN A 100.0.0.1\n"));
+        }
+
+        long started = System.nanoTime();
+        int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")), new FakeRemoteExecutor(),
+                Clock.systemUTC(), new CapturingConsole(), process).run(List.of("doctor", "--network"));
+        long elapsedMillis = java.time.Duration.ofNanos(System.nanoTime() - started).toMillis();
+
+        check(exit == ExitCodes.SUCCESS, "network doctor concurrent nodes exits success");
+        check(elapsedMillis < 1400, "network doctor checks nodes concurrently");
     }
 
     private void testDoctorNetworkTreatsDerpPongAsReachable() throws Exception {

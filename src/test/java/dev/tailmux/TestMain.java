@@ -137,11 +137,16 @@ public class TestMain {
 
     static final class FakeLocalProcess extends LocalProcess {
         private final java.util.Map<List<String>, ExecResult> responses = new LinkedHashMap<>();
-        private final java.util.ArrayList<List<String>> commands = new java.util.ArrayList<>();
-        private final java.util.ArrayList<String> existsChecks = new java.util.ArrayList<>();
+        private final java.util.List<List<String>> commands = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        private final java.util.List<String> existsChecks = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        private Duration captureDelay = Duration.ZERO;
 
         void when(List<String> command, ExecResult result) {
             responses.put(command, result);
+        }
+
+        void delayCaptures(Duration delay) {
+            captureDelay = delay;
         }
 
         List<List<String>> commands() {
@@ -153,13 +158,16 @@ public class TestMain {
         }
 
         @Override
-        public ExecResult capture(List<String> command) {
+        public ExecResult capture(List<String> command) throws InterruptedException {
+            if (!captureDelay.isZero()) {
+                Thread.sleep(captureDelay.toMillis());
+            }
             commands.add(command);
             return responses.getOrDefault(command, ExecResult.failure(127, "", "missing fake response"));
         }
 
         @Override
-        public ExecResult capture(List<String> command, Duration timeout) {
+        public ExecResult capture(List<String> command, Duration timeout) throws InterruptedException {
             return capture(command);
         }
 
