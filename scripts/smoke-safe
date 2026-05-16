@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+./scripts/test
+./scripts/build
+git diff --check
+
+if [[ ! -f "$HOME/.tailmux/config.properties" ]]; then
+  echo "skip live smoke: missing ~/.tailmux/config.properties"
+  exit 0
+fi
+
+./scripts/tailmux nodes
+./scripts/tailmux ls
+./scripts/tailmux ls --windows
+./scripts/tailmux ls --panes
+
+echo "safe smoke passed"

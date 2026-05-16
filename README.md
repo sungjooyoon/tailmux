@@ -77,3 +77,7 @@ Window and pane selectors use tmux's existing selection commands before attach. 
 - Java 21
 - Tailscale CLI with Tailscale SSH enabled
 - tmux on remote home nodes
+
+## Troubleshooting
+
+See docs/TROUBLESHOOTING.md for safe Tailscale SSH and MagicDNS diagnostics. In particular, do not run `tailscale down` from inside a Tailscale SSH session.
