@@ -43,10 +43,18 @@ public final class AtomicFiles {
     }
 
     private static String escape(String value) {
-        return value
-                .replace("\\", "\\\\")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("=", "\\=");
+        StringBuilder escaped = null;
+        for (int i = 0; i < value.length(); i++) {
+            String replacement = switch (value.charAt(i)) {
+                case '\\' -> "\\\\";
+                case '\n' -> "\\n";
+                case '\r' -> "\\r";
+                case '=' -> "\\=";
+                default -> null;
+            };
+            if (replacement != null && escaped == null) escaped = new StringBuilder(value.length() + 8).append(value, 0, i);
+            if (escaped != null) escaped.append(replacement == null ? value.charAt(i) : replacement);
+        }
+        return escaped == null ? value : escaped.toString();
     }
 }

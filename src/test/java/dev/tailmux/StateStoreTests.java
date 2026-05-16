@@ -24,6 +24,7 @@ final class StateStoreTests extends TestMain {
         testWorkspaceWritesDeterministicKeys();
         testEventLogRedactsUnapprovedFields();
         testStateWritersAvoidStreamCollectors();
+        testAtomicPropertyEscapeIsSinglePass();
     }
 
     private void testStateRoundTrip() throws Exception {
@@ -146,6 +147,11 @@ final class StateStoreTests extends TestMain {
             String source = Files.readString(Path.of(file));
             check(!source.contains(".stream()") && !source.contains("Collectors"), file + " avoids stream collectors");
         }
+    }
+
+    private void testAtomicPropertyEscapeIsSinglePass() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/AtomicFiles.java"));
+        check(!source.contains(".replace("), "atomic property escaping avoids replace chains");
     }
 
     private TailmuxException expectTailmuxException(ThrowingRunnable runnable) {
