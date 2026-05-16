@@ -143,16 +143,21 @@ public final class TmuxParser {
     }
 
     private static String[] fields(String line) {
-        ArrayList<String> parts = new ArrayList<>(8);
+        int count = 1;
+        for (int i = 0; i < line.length(); i++) {
+            if (line.charAt(i) == SEP_CHAR) count++;
+        }
+        String[] parts = new String[count];
+        int field = 0;
         int start = 0;
         for (int i = 0; i < line.length(); i++) {
             if (line.charAt(i) == SEP_CHAR) {
-                parts.add(line.substring(start, i));
+                parts[field++] = line.substring(start, i);
                 start = i + 1;
             }
         }
-        parts.add(line.substring(start));
-        return parts.toArray(String[]::new);
+        parts[field] = line.substring(start);
+        return parts;
     }
 
     private static long parseLong(String value) {
