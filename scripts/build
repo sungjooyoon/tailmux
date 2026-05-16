@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+rm -rf build/classes build/tailmux.jar
+mkdir -p build/classes
+
+find src/main/java -name '*.java' | sort > build/main-sources.txt
+javac --release 21 -d build/classes @build/main-sources.txt
+
+jar --create --file build/tailmux.jar --main-class dev.tailmux.Main -C build/classes .
+echo "built build/tailmux.jar"
+

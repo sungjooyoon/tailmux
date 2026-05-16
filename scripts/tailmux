@@ -1,0 +1,2 @@
+#!/usr/bin/env -S java -jar build/tailmux.jar
+
