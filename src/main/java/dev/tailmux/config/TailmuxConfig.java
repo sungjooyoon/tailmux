@@ -74,7 +74,9 @@ public final class TailmuxConfig {
     }
 
     public List<NodeConfig> nodeConfigs() {
-        return homePool.stream().map(this::node).toList();
+        ArrayList<NodeConfig> configs = new ArrayList<>(homePool.size());
+        for (NodeId id : homePool) configs.add(node(id));
+        return configs;
     }
 
     public NodeConfig node(NodeId id) {
@@ -91,7 +93,10 @@ public final class TailmuxConfig {
     }
 
     private static List<NodeId> parseNodeList(String raw) {
-        return parseCsv(raw).stream().map(NodeId::parse).toList();
+        List<String> values = parseCsv(raw);
+        ArrayList<NodeId> nodes = new ArrayList<>(values.size());
+        for (String value : values) nodes.add(NodeId.parse(value));
+        return nodes;
     }
 
     private static List<String> parseSockets(String raw) {

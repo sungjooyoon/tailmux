@@ -110,14 +110,18 @@ final class WorkspaceService {
     private NodeConfig chooseHome(Optional<NodeId> explicitHome, List<NodeConfig> healthy) {
         if (explicitHome.isPresent()) {
             NodeConfig node = config.node(explicitHome.get());
-            if (healthy.stream().anyMatch(candidate -> candidate.id().equals(node.id()))) return node;
+            for (NodeConfig candidate : healthy) {
+                if (candidate.id().equals(node.id())) return node;
+            }
             throw new TailmuxException(ExitCodes.NO_HEALTHY_HOME_NODE, "FAIL " + node.id().value() + " is not healthy for workspace creation");
         }
-        return healthy.stream()
-                .filter(node -> node.id().equals(config.defaultHome()))
-                .findFirst()
-                .or(() -> healthy.stream().findFirst())
-                .orElseThrow(() -> new TailmuxException(ExitCodes.NO_HEALTHY_HOME_NODE, "FAIL no healthy home node is available"));
+        NodeConfig first = null;
+        for (NodeConfig node : healthy) {
+            if (first == null) first = node;
+            if (node.id().equals(config.defaultHome())) return node;
+        }
+        if (first != null) return first;
+        throw new TailmuxException(ExitCodes.NO_HEALTHY_HOME_NODE, "FAIL no healthy home node is available");
     }
 
     private void ensureSession(NodeConfig node, String socket, String session) throws IOException, InterruptedException {

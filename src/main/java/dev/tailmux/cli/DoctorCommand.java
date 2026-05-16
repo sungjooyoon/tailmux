@@ -54,10 +54,10 @@ final class DoctorCommand {
 
     private List<NodeDoctorResult> checkRemoteNodes() throws InterruptedException {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<NodeDoctorResult>> futures = config.nodeConfigs().stream()
-                    .map(node -> executor.submit(() -> checkRemoteNode(node)))
-                    .toList();
-            ArrayList<NodeDoctorResult> results = new ArrayList<>();
+            List<NodeConfig> nodes = config.nodeConfigs();
+            ArrayList<Future<NodeDoctorResult>> futures = new ArrayList<>(nodes.size());
+            for (NodeConfig node : nodes) futures.add(executor.submit(() -> checkRemoteNode(node)));
+            ArrayList<NodeDoctorResult> results = new ArrayList<>(futures.size());
             for (Future<NodeDoctorResult> future : futures) {
                 try {
                     results.add(future.get());
@@ -123,10 +123,10 @@ final class DoctorCommand {
 
     private List<NodeDoctorResult> checkNetworkNodes(boolean hasDscacheutil, boolean hasDig) throws InterruptedException {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<NodeDoctorResult>> futures = config.nodeConfigs().stream()
-                    .map(node -> executor.submit(() -> networkNode(node, hasDscacheutil, hasDig)))
-                    .toList();
-            ArrayList<NodeDoctorResult> results = new ArrayList<>();
+            List<NodeConfig> nodes = config.nodeConfigs();
+            ArrayList<Future<NodeDoctorResult>> futures = new ArrayList<>(nodes.size());
+            for (NodeConfig node : nodes) futures.add(executor.submit(() -> networkNode(node, hasDscacheutil, hasDig)));
+            ArrayList<NodeDoctorResult> results = new ArrayList<>(futures.size());
             for (Future<NodeDoctorResult> future : futures) {
                 try {
                     results.add(future.get());

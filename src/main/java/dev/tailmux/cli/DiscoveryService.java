@@ -38,11 +38,11 @@ final class DiscoveryService {
     }
 
     List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows) {
-        return discoverNodes(nodes, includeWindows).stream().map(DiscoveredNode::snapshot).toList();
+        return snapshots(discoverNodes(nodes, includeWindows));
     }
 
     List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
-        return discoverNodes(nodes, includeWindows, includePanes).stream().map(DiscoveredNode::snapshot).toList();
+        return snapshots(discoverNodes(nodes, includeWindows, includePanes));
     }
 
     List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows) {
@@ -51,10 +51,11 @@ final class DiscoveryService {
 
     private List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<DiscoveredNode>> futures = nodes.stream()
-                    .map(node -> executor.submit(() -> new DiscoveredNode(node, discoverOrCached(node, includeWindows, includePanes))))
-                    .toList();
-            ArrayList<DiscoveredNode> discovered = new ArrayList<>();
+            ArrayList<Future<DiscoveredNode>> futures = new ArrayList<>(nodes.size());
+            for (NodeConfig node : nodes) {
+                futures.add(executor.submit(() -> new DiscoveredNode(node, discoverOrCached(node, includeWindows, includePanes))));
+            }
+            ArrayList<DiscoveredNode> discovered = new ArrayList<>(futures.size());
             for (Future<DiscoveredNode> future : futures) {
                 try {
                     discovered.add(future.get());
@@ -68,6 +69,12 @@ final class DiscoveryService {
             }
             return List.copyOf(discovered);
         }
+    }
+
+    private List<NodeSnapshot> snapshots(List<DiscoveredNode> discovered) {
+        ArrayList<NodeSnapshot> snapshots = new ArrayList<>(discovered.size());
+        for (DiscoveredNode node : discovered) snapshots.add(node.snapshot());
+        return snapshots;
     }
 
     private NodeSnapshot discoverOrCached(NodeConfig node, boolean includeWindows, boolean includePanes) {

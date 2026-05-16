@@ -21,6 +21,7 @@ final class CoreTests extends TestMain {
         testTmuxDiscoveryShortCircuits();
         testTmuxNoServerClassifierAcceptsTmuxPhrasing();
         testProductParsingAvoidsRegexHelpers();
+        testControlPathAvoidsStreamPipelines();
     }
 
     private void testWorkspaceNameValidation() {
@@ -84,5 +85,15 @@ final class CoreTests extends TestMain {
                 .anyMatch(source -> source.contains(".matches(") || source.contains(".split(") || source.contains(".replaceAll("));
 
         check(!regexHelper, "product parsing avoids regex helpers");
+    }
+
+    private void testControlPathAvoidsStreamPipelines() throws Exception {
+        for (String file : List.of(
+                "src/main/java/dev/tailmux/config/TailmuxConfig.java",
+                "src/main/java/dev/tailmux/cli/DiscoveryService.java",
+                "src/main/java/dev/tailmux/cli/DoctorCommand.java",
+                "src/main/java/dev/tailmux/cli/WorkspaceService.java")) {
+            check(!Files.readString(Path.of(file)).contains(".stream()"), file + " avoids stream pipelines");
+        }
     }
 }
