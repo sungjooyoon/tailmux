@@ -9,6 +9,7 @@ import dev.tailmux.tmux.TmuxCommands;
 import dev.tailmux.tmux.TmuxParser;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 
 final class DoctorCommand {
@@ -91,8 +92,8 @@ final class DoctorCommand {
 
     private void networkNode(NodeConfig node) throws IOException, InterruptedException {
         String host = node.host();
-        ExecResult ping = localProcess.capture(List.of("tailscale", "ping", "--c=1", host));
-        if (ping.ok()) {
+        ExecResult ping = localProcess.capture(List.of("tailscale", "ping", "--c=1", host), Duration.ofSeconds(6));
+        if (pingReachable(ping)) {
             console.out("OK    " + node.id().value() + " tailscale ping");
         } else {
             console.out("WARN  " + node.id().value() + " tailscale ping failed: " + ping.errorText());
@@ -109,7 +110,7 @@ final class DoctorCommand {
                 console.out("  dscacheutil -q host -a name " + host);
             }
         }
-        if (localProcess.commandExists("dig")) {
+        if (shouldCheckTailscaleDns(host) && localProcess.commandExists("dig")) {
             ExecResult dns = localProcess.capture(List.of("dig", "@100.100.100.100", host));
             if (dns.ok() && dns.stdout().contains(" IN A")) {
                 console.out("OK    " + node.id().value() + " tailscale dns resolved host");
@@ -144,5 +145,13 @@ final class DoctorCommand {
     private boolean isResolverFailure(String error) {
         String lower = error.toLowerCase();
         return lower.contains("could not resolve hostname") || lower.contains("nodename nor servname provided");
+    }
+
+    private boolean pingReachable(ExecResult result) {
+        return result.ok() || result.stdout().toLowerCase().contains("pong from");
+    }
+
+    private boolean shouldCheckTailscaleDns(String host) {
+        return host.contains(".") && !host.matches("\\d+\\.\\d+\\.\\d+\\.\\d+");
     }
 }
