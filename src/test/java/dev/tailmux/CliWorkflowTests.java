@@ -181,12 +181,16 @@ final class CliWorkflowTests extends TestMain {
         p.setProperty("tailmux.node.office-a.sockets", "default,work");
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(1, "", "no server running"));
-        remote.when("office-a", TmuxCommands.listSessions("work"), ExecResult.success("modal\u001F\u00242\u001F0\u001F1\u001F2\n"));
+        remote.when("office-a", TmuxCommands.hasSession("default", "modal"), ExecResult.failure(1, "", "can't find session: modal"));
+        remote.when("office-a", TmuxCommands.hasSession("work", "modal"), ExecResult.success(""));
 
         int exit = router(config, remote, tempDir()).run(List.of("attach", "office-a:modal"));
 
         check(exit == ExitCodes.SUCCESS, "attach selector finds non-default socket");
+        check(remote.commandsFor("office-a").equals(List.of(
+                TmuxCommands.hasSession("default", "modal"),
+                TmuxCommands.hasSession("work", "modal")
+        )), "multi-socket selector uses has-session probes only");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L work attach-session -t modal")), "attach selector uses resolved socket");
         check(!remote.commandsFor("office-a").contains("command -v tmux"), "attach selector resolves socket without redundant tmux binary probe");
     }
@@ -197,8 +201,8 @@ final class CliWorkflowTests extends TestMain {
         p.setProperty("tailmux.node.office-a.sockets", "default,work");
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("modal\u001F\u00241\u001F0\u001F1\u001F2\n"));
-        remote.when("office-a", TmuxCommands.listSessions("work"), ExecResult.success("modal\u001F\u00242\u001F0\u001F1\u001F2\n"));
+        remote.when("office-a", TmuxCommands.hasSession("default", "modal"), ExecResult.success(""));
+        remote.when("office-a", TmuxCommands.hasSession("work", "modal"), ExecResult.success(""));
 
         CapturingConsole console = new CapturingConsole();
         int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,

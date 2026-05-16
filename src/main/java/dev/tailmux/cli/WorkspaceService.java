@@ -15,7 +15,6 @@ import dev.tailmux.exec.RemoteExecutor;
 import dev.tailmux.state.PropertiesStateStore;
 import dev.tailmux.tmux.TmuxCommands;
 import dev.tailmux.tmux.TmuxFailure;
-import dev.tailmux.tmux.TmuxParser;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -168,14 +167,11 @@ final class WorkspaceService {
 
         ArrayList<String> matches = new ArrayList<>();
         for (String socket : node.sockets()) {
-            ExecResult result = remote.execute(node, TmuxCommands.listSessions(socket));
-            if (TmuxFailure.noServer(result)) continue;
-            if (!result.ok()) {
-                throw classifyTmuxCommandFailure(node, "could not list tmux sessions", result);
-            }
-            NodeSnapshot snapshot = TmuxParser.parse(node.id(), socket, result.stdout(), "", clock.instant());
-            if (snapshot.sessions().stream().anyMatch(candidate -> candidate.name().equals(session))) {
+            ExecResult result = remote.execute(node, TmuxCommands.hasSession(socket, session));
+            if (result.ok()) {
                 matches.add(socket);
+            } else if (TmuxFailure.remoteExecution(result) || TmuxFailure.missingBinary(result)) {
+                throw classifyTmuxCommandFailure(node, "could not find tmux session " + session, result);
             }
         }
         if (matches.isEmpty()) {
