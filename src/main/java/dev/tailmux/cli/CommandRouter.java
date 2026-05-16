@@ -68,7 +68,7 @@ public final class CommandRouter {
             store.ensureWritable();
             ParsedCommand parsed = classify(args);
             return switch (parsed.command()) {
-                case "doctor" -> doctor();
+                case "doctor" -> parsed.args().contains("--network") ? doctorNetwork() : doctor();
                 case "nodes" -> nodes();
                 case "ls" -> list(parsed.args().contains("--windows") || parsed.args().contains("--panes"), parsed.args().contains("--panes"));
                 case "attach" -> attachCommand(parsed.args());
@@ -132,7 +132,7 @@ public final class CommandRouter {
             ExecResult ssh = remote.execute(node, "echo ok");
             if (!ssh.ok()) {
                 failed = true;
-                console.out("FAIL  " + node.id().value() + " tailscale ssh failed: " + ssh.errorText());
+                printSshFailure(node, ssh);
                 continue;
             }
             console.out("OK    " + node.id().value() + " tailscale ssh");
@@ -159,6 +159,76 @@ public final class CommandRouter {
             }
         }
         return failed ? ExitCodes.REMOTE_EXECUTION_ERROR : ExitCodes.SUCCESS;
+    }
+
+    private int doctorNetwork() throws IOException, InterruptedException {
+        boolean failed = false;
+        ExecResult status = localProcess.capture(List.of("tailscale", "status"));
+        if (status.ok()) {
+            console.out("OK    tailscale status");
+        } else {
+            failed = true;
+            console.out("FAIL  tailscale status failed: " + status.errorText());
+            console.out("Try:");
+            console.out("  tailscale status");
+        }
+        for (NodeConfig node : config.nodeConfigs()) {
+            String host = node.host();
+            ExecResult ping = localProcess.capture(List.of("tailscale", "ping", "--c=1", host));
+            if (ping.ok()) {
+                console.out("OK    " + node.id().value() + " tailscale ping");
+            } else {
+                console.out("WARN  " + node.id().value() + " tailscale ping failed: " + ping.errorText());
+                console.out("Try:");
+                console.out("  tailscale ping --c=1 " + host);
+            }
+            if (localProcess.commandExists("dscacheutil")) {
+                ExecResult resolver = localProcess.capture(List.of("dscacheutil", "-q", "host", "-a", "name", host));
+                if (resolver.ok() && !resolver.stdout().isBlank()) {
+                    console.out("OK    " + node.id().value() + " macOS resolver resolved host");
+                } else {
+                    console.out("WARN  " + node.id().value() + " macOS resolver did not resolve host");
+                    console.out("Try:");
+                    console.out("  dscacheutil -q host -a name " + host);
+                }
+            }
+            if (localProcess.commandExists("dig")) {
+                ExecResult dns = localProcess.capture(List.of("dig", "@100.100.100.100", host));
+                if (dns.ok() && dns.stdout().contains(" IN A")) {
+                    console.out("OK    " + node.id().value() + " tailscale dns resolved host");
+                } else {
+                    console.out("WARN  " + node.id().value() + " tailscale dns did not resolve host");
+                    console.out("Try:");
+                    console.out("  dig @100.100.100.100 " + host);
+                }
+            }
+        }
+        return failed ? ExitCodes.REMOTE_EXECUTION_ERROR : ExitCodes.SUCCESS;
+    }
+
+    private void printSshFailure(NodeConfig node, ExecResult result) {
+        String error = result.errorText();
+        if (isResolverFailure(error)) {
+            console.out("FAIL  " + node.id().value() + " magicdns resolution failed: " + error);
+            console.out("Try:");
+            console.out("  tailmux doctor --network");
+            console.out("  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+            return;
+        }
+        if (result.exitCode() == 124 || error.toLowerCase().contains("timed out")) {
+            console.out("FAIL  " + node.id().value() + " tailscale ssh timed out: " + error);
+            console.out("Try:");
+            console.out("  tailscale ping --c=1 " + node.host());
+            return;
+        }
+        console.out("FAIL  " + node.id().value() + " tailscale ssh failed: " + error);
+        console.out("Try:");
+        console.out("  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+    }
+
+    private boolean isResolverFailure(String error) {
+        String lower = error.toLowerCase();
+        return lower.contains("could not resolve hostname") || lower.contains("nodename nor servname provided");
     }
 
     private int nodes() {

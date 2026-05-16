@@ -9,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-public final class LocalProcess {
+public class LocalProcess {
     private static final Duration DEFAULT_CAPTURE_TIMEOUT = Duration.ofSeconds(3);
 
     public ExecResult capture(List<String> command) throws IOException, InterruptedException {

@@ -69,6 +69,8 @@ public final class TestMain {
         testListPanesRendersPaneRows();
         testAttachPaneSelectsWindowAndPane();
         testDoctorClassification();
+        testDoctorClassifiesMagicDnsFailure();
+        testDoctorNetworkUsesSafeReadOnlyProbes();
     }
 
     private void testWorkspaceNameValidation() {
@@ -490,6 +492,41 @@ public final class TestMain {
         check(console.out().contains("WARN  office-a tmux default no server currently running"), "doctor warns for no server");
     }
 
+    private void testDoctorClassifiesMagicDnsFailure() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "echo ok", ExecResult.failure(255, "", "ssh: Could not resolve hostname office-a.tail.ts.net.: nodename nor servname provided, or not known"));
+
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), console)
+                .run(List.of("doctor"));
+
+        check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "doctor magicdns failure exits remote error");
+        check(console.out().contains("FAIL  office-a magicdns resolution failed"), "doctor classifies magicdns failure");
+        check(console.out().contains("Try:"), "doctor prints next action");
+        check(!console.out().contains("tailscale down"), "doctor never recommends tailscale down");
+    }
+
+    private void testDoctorNetworkUsesSafeReadOnlyProbes() throws Exception {
+        FakeLocalProcess process = new FakeLocalProcess();
+        process.when(List.of("tailscale", "status"), ExecResult.success("100.0.0.1 office-a user@ macOS -\n"));
+        process.when(List.of("tailscale", "ping", "--c=1", "office-a"), ExecResult.success("pong from office-a (100.0.0.1) in 10ms\n"));
+        process.when(List.of("dscacheutil", "-q", "host", "-a", "name", "office-a"), ExecResult.failure(0, "", ""));
+        process.when(List.of("dig", "@100.100.100.100", "office-a"), ExecResult.success("office-a. 600 IN A 100.0.0.1\n"));
+
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), new FakeRemoteExecutor(),
+                Clock.systemUTC(), console, process).run(List.of("doctor", "--network"));
+
+        check(exit == ExitCodes.SUCCESS, "network doctor exits success");
+        check(console.out().contains("OK    tailscale status"), "network doctor checks tailscale status");
+        check(console.out().contains("OK    office-a tailscale ping"), "network doctor pings node");
+        check(console.out().contains("WARN  office-a macOS resolver did not resolve host"), "network doctor reports resolver miss");
+        check(console.out().contains("OK    office-a tailscale dns resolved host"), "network doctor checks tailscale dns");
+        check(!process.commands().toString().contains("down"), "network doctor does not run tailscale down");
+        check(!process.commands().toString().contains("up"), "network doctor does not run tailscale up");
+        check(!process.commands().toString().contains("set"), "network doctor does not run tailscale set");
+    }
+
     private CommandRouter router(TailmuxConfig config, FakeRemoteExecutor remote, Path home) {
         return new CommandRouter(config, new PropertiesStateStore(home.resolve(".tailmux/state")), remote, Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), new CapturingConsole());
     }
@@ -555,6 +592,30 @@ public final class TestMain {
         @Override
         public int attachInteractive(NodeConfig node, String command) {
             return 0;
+        }
+    }
+
+    private static final class FakeLocalProcess extends LocalProcess {
+        private final java.util.Map<List<String>, ExecResult> responses = new java.util.LinkedHashMap<List<String>, ExecResult> ();
+        private final java.util.ArrayList<List<String>> commands = new java.util.ArrayList<List<String>> ();
+
+        private void when(List<String> command, ExecResult result) {
+            responses.put(command, result);
+        }
+
+        private List<List<String>> commands() {
+            return List.copyOf(commands);
+        }
+
+        @Override
+        public ExecResult capture(List<String> command) {
+            commands.add(command);
+            return responses.getOrDefault(command, ExecResult.failure(127, "", "missing fake response"));
+        }
+
+        @Override
+        public boolean commandExists(String command) {
+            return true;
         }
     }
 }
