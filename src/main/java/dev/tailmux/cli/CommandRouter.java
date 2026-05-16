@@ -82,7 +82,7 @@ public final class CommandRouter {
         if (!"start".equals(command)) {
             return new ParsedCommand(command, rest, Optional.empty());
         }
-        ArrayList<String> args = new ArrayList<String> ();
+        ArrayList<String> args = new ArrayList<>();
         Optional<String> home = Optional.empty();
         for (int i = 0; i < rest.size(); i++) {
             String arg = rest.get(i);

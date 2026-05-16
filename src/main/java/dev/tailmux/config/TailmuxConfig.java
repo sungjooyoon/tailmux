@@ -53,7 +53,7 @@ public final class TailmuxConfig {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: tailmux.home.default must be in tailmux.home.pool");
         }
 
-        Map<NodeId, NodeConfig> nodes = new LinkedHashMap<NodeId, NodeConfig> ();
+        Map<NodeId, NodeConfig> nodes = new LinkedHashMap<>();
         for (NodeId id : pool) {
             String prefix = "tailmux.node." + id.value() + ".";
             String host = properties.getProperty(prefix + "host", id.value()).trim();

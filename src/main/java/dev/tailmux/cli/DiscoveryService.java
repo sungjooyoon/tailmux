@@ -40,7 +40,7 @@ final class DiscoveryService {
         ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, nodes.size()));
         try {
             List<Future<NodeSnapshot>> futures = nodes.stream().map(node -> executor.submit(() -> discoverOrCached(node, includeWindows))).toList();
-            ArrayList<NodeSnapshot> snapshots = new ArrayList<NodeSnapshot> ();
+            ArrayList<NodeSnapshot> snapshots = new ArrayList<>();
             for (Future<NodeSnapshot> future : futures) {
                 try {
                     snapshots.add(future.get());
@@ -73,7 +73,7 @@ final class DiscoveryService {
     private NodeSnapshot discover(NodeConfig node, boolean includeWindows) {
         Instant now = clock.instant();
         try {
-            ArrayList<TmuxSession> sessions = new ArrayList<TmuxSession> ();
+            ArrayList<TmuxSession> sessions = new ArrayList<>();
             for (String socket : node.sockets()) {
                 ExecResult discovery = remote.execute(node, includeWindows
                         ? TmuxCommands.discover(socket)

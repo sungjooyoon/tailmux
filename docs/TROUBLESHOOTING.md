@@ -57,6 +57,14 @@ Do not treat this as a Tailmux success. The required Phase 1 substrate is still:
 
     tailscale ssh <user>@<node> 'echo ok'
 
+## Host Key Or Auth Failure
+
+`Host key verification failed` usually means the local SSH known-hosts state and the Tailscale address do not agree yet. Re-run the exact `tailscale ssh <user>@<node> 'echo ok'` command shown by `tailmux doctor` from a normal local terminal.
+
+`Permission denied` usually means the Tailscale SSH user or policy does not match the configured Tailmux target. Check `tailmux.user` and `tailmux.node.<id>.user` first.
+
+Do not switch Tailmux to plain SSH to work around either failure.
+
 ## No tmux Server
 
 `no server running` is not a Tailmux failure. It means the node is reachable and tmux exists, but no tmux server has sessions yet. Tailmux can still create a managed workspace there.
@@ -73,3 +81,13 @@ Do not use `scripts/smoke-safe` for interactive attach. The safe smoke script de
     tailmux attach <target>
 
 Run those only from a terminal where handing control to tmux is expected.
+
+## Tomorrow's Manual Verification
+
+After each office Mac is reachable through Tailscale SSH:
+
+    ./scripts/tailmux doctor
+    ./scripts/tailmux ls --windows
+    ./scripts/tailmux work
+
+Detach with `Ctrl-b d`, then run `./scripts/tailmux work` again and confirm it reattaches to the same remote tmux session.

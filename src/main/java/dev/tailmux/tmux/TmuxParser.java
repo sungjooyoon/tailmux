@@ -25,8 +25,8 @@ public final class TmuxParser {
     }
 
     public static NodeSnapshot parse(NodeId node, String socket, String sessionsOutput, String windowsOutput, String panesOutput, Instant seenAt) {
-        Map<String, MutableSession> sessions = new LinkedHashMap<String, MutableSession> ();
-        Map<String, MutableWindow> windows = new LinkedHashMap<String, MutableWindow> ();
+        Map<String, MutableSession> sessions = new LinkedHashMap<>();
+        Map<String, MutableWindow> windows = new LinkedHashMap<>();
         for (String line : lines(sessionsOutput)) {
             String[] parts = line.split(SEP, -1);
             if (parts.length < 5) {
@@ -124,7 +124,7 @@ public final class TmuxParser {
         private final String id;
         private final String name;
         private final boolean active;
-        private final ArrayList<TmuxPane> panes = new ArrayList<TmuxPane> ();
+        private final ArrayList<TmuxPane> panes = new ArrayList<>();
 
         private MutableWindow(int index, String id, String name, boolean active) {
             this.index = index;
@@ -145,7 +145,7 @@ public final class TmuxParser {
         private final boolean attached;
         private final long created;
         private final long activity;
-        private final ArrayList<MutableWindow> windows = new ArrayList<MutableWindow> ();
+        private final ArrayList<MutableWindow> windows = new ArrayList<>();
 
         private MutableSession(String socket, String name, String id, boolean attached, long created, long activity) {
             this.socket = socket;

@@ -90,15 +90,15 @@ public final class PropertiesStateStore {
         try {
             Properties p = load(path);
             int sessionCount = countProperty(p, "sessions.count", 0);
-            ArrayList<TmuxSession> sessions = new ArrayList<TmuxSession> ();
+            ArrayList<TmuxSession> sessions = new ArrayList<>();
             for (int i = 0; i < sessionCount; i++) {
                 String prefix = "sessions." + i + ".";
                 int windowCount = countProperty(p, prefix + "windows.count", 0);
-                ArrayList<TmuxWindow> windows = new ArrayList<TmuxWindow> ();
+                ArrayList<TmuxWindow> windows = new ArrayList<>();
                 for (int w = 0; w < windowCount; w++) {
                     String wp = prefix + "windows." + w + ".";
                     int paneCount = countProperty(p, wp + "panes.count", 0);
-                    ArrayList<TmuxPane> panes = new ArrayList<TmuxPane> ();
+                    ArrayList<TmuxPane> panes = new ArrayList<>();
                     for (int pane = 0; pane < paneCount; pane++) {
                         String pp = wp + "panes." + pane + ".";
                         panes.add(new TmuxPane(

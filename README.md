@@ -24,8 +24,13 @@ Phase 1 is agentless and SSH-backed:
 Run locally:
 
     ./scripts/tailmux doctor
+    ./scripts/tailmux doctor --network
     ./scripts/tailmux ls
     ./scripts/tailmux work
+
+Safe local smoke, without interactive attach:
+
+    ./scripts/smoke-safe
 
 ## Config
 

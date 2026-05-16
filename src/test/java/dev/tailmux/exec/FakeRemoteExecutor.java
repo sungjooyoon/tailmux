@@ -9,10 +9,10 @@ import java.util.List;
 import java.util.Map;
 
 public final class FakeRemoteExecutor implements RemoteExecutor {
-    private final Map<String, ExecResult> responses = new LinkedHashMap<String, ExecResult> ();
-    private final Map<String, ExecResult> nodeFailures = new LinkedHashMap<String, ExecResult> ();
-    private final Map<String, ArrayList<String>> commands = new LinkedHashMap<String, ArrayList<String>> ();
-    private final ArrayList<String> interactive = new ArrayList<String> ();
+    private final Map<String, ExecResult> responses = new LinkedHashMap<>();
+    private final Map<String, ExecResult> nodeFailures = new LinkedHashMap<>();
+    private final Map<String, ArrayList<String>> commands = new LinkedHashMap<>();
+    private final ArrayList<String> interactive = new ArrayList<>();
 
     public synchronized void when(String node, String command, ExecResult result) {
         responses.put(key(node, command), result);
@@ -23,7 +23,7 @@ public final class FakeRemoteExecutor implements RemoteExecutor {
     }
 
     public synchronized List<String> commandsFor(String node) {
-        return List.copyOf(commands.getOrDefault(node, new ArrayList<String> ()));
+        return List.copyOf(commands.getOrDefault(node, new ArrayList<>()));
     }
 
     public synchronized List<String> interactiveCommands() {
@@ -32,7 +32,7 @@ public final class FakeRemoteExecutor implements RemoteExecutor {
 
     @Override
     public synchronized ExecResult execute(NodeConfig node, String command) {
-        commands.computeIfAbsent(node.id().value(), ignored -> new ArrayList<String> ()).add(command);
+        commands.computeIfAbsent(node.id().value(), ignored -> new ArrayList<>()).add(command);
         ExecResult nodeFailure = nodeFailures.get(node.id().value());
         if (nodeFailure != null) {
             return nodeFailure;
