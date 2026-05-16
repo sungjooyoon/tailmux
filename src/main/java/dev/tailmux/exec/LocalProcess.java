@@ -16,8 +16,20 @@ public class LocalProcess {
         return capture(command, DEFAULT_CAPTURE_TIMEOUT);
     }
 
+    public ExecResult capture(String... command) throws IOException, InterruptedException {
+        return capture(DEFAULT_CAPTURE_TIMEOUT, command);
+    }
+
     public ExecResult capture(List<String> command, Duration timeout) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(command).start();
+        return capture(new ProcessBuilder(command), timeout);
+    }
+
+    public ExecResult capture(Duration timeout, String... command) throws IOException, InterruptedException {
+        return capture(new ProcessBuilder(command), timeout);
+    }
+
+    private ExecResult capture(ProcessBuilder builder, Duration timeout) throws IOException, InterruptedException {
+        Process process = builder.start();
         FutureTask<byte[]> stdout = readAsync(process.getInputStream());
         FutureTask<byte[]> stderr = readAsync(process.getErrorStream());
         boolean finished = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -37,9 +49,14 @@ public class LocalProcess {
         return process.waitFor();
     }
 
+    public int inherit(String... command) throws IOException, InterruptedException {
+        Process process = new ProcessBuilder(command).inheritIO().start();
+        return process.waitFor();
+    }
+
     public boolean commandExists(String command) {
         try {
-            return capture(List.of("sh", "-lc", "command -v " + PosixShell.quote(command))).ok();
+            return capture("sh", "-lc", "command -v " + PosixShell.quote(command)).ok();
         } catch (IOException e) {
             return false;
         } catch (InterruptedException e) {

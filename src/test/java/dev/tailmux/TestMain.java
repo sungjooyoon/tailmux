@@ -167,14 +167,29 @@ public class TestMain {
         }
 
         @Override
+        public ExecResult capture(String... command) throws InterruptedException {
+            return capture(List.of(command));
+        }
+
+        @Override
         public ExecResult capture(List<String> command, Duration timeout) throws InterruptedException {
             return capture(command);
+        }
+
+        @Override
+        public ExecResult capture(Duration timeout, String... command) throws InterruptedException {
+            return capture(List.of(command));
         }
 
         @Override
         public int inherit(List<String> command) {
             commands.add(command);
             return 0;
+        }
+
+        @Override
+        public int inherit(String... command) {
+            return inherit(List.of(command));
         }
 
         @Override

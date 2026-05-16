@@ -104,7 +104,7 @@ final class DoctorCommand {
 
     private int network() throws IOException, InterruptedException {
         boolean failed = false;
-        ExecResult status = localProcess.capture(List.of("tailscale", "status"));
+        ExecResult status = localProcess.capture("tailscale", "status");
         if (status.ok()) {
             console.out("OK    tailscale status");
         } else {
@@ -143,7 +143,7 @@ final class DoctorCommand {
     private NodeDoctorResult networkNode(NodeConfig node, boolean hasDscacheutil, boolean hasDig) throws IOException, InterruptedException {
         ArrayList<String> lines = new ArrayList<>();
         String host = node.host();
-        ExecResult ping = localProcess.capture(List.of("tailscale", "ping", "--c=1", host), Duration.ofSeconds(6));
+        ExecResult ping = localProcess.capture(Duration.ofSeconds(6), "tailscale", "ping", "--c=1", host);
         if (pingReachable(ping)) {
             lines.add("OK    " + node.id().value() + " tailscale ping");
         } else {
@@ -152,7 +152,7 @@ final class DoctorCommand {
             lines.add("  tailscale ping --c=1 " + host);
         }
         if (hasDscacheutil) {
-            ExecResult resolver = localProcess.capture(List.of("dscacheutil", "-q", "host", "-a", "name", host));
+            ExecResult resolver = localProcess.capture("dscacheutil", "-q", "host", "-a", "name", host);
             if (resolver.ok() && !resolver.stdout().isBlank()) {
                 lines.add("OK    " + node.id().value() + " macOS resolver resolved host");
             } else {
@@ -162,7 +162,7 @@ final class DoctorCommand {
             }
         }
         if (shouldCheckTailscaleDns(host) && hasDig) {
-            ExecResult dns = localProcess.capture(List.of("dig", "@100.100.100.100", host));
+            ExecResult dns = localProcess.capture("dig", "@100.100.100.100", host);
             if (dns.ok() && dns.stdout().contains(" IN A")) {
                 lines.add("OK    " + node.id().value() + " tailscale dns resolved host");
             } else {

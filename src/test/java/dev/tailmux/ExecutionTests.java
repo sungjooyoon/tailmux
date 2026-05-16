@@ -19,6 +19,7 @@ final class ExecutionTests extends TestMain {
         testLocalProcessDefaultTimeoutFailsFast();
         testLocalProcessLargeOutputDoesNotDeadlock();
         testTailscaleSshExecutorUsesTailscaleSshOnly();
+        testProcessCallersAvoidListWrappers();
         testProductCodeDoesNotInvokePlainSsh();
     }
 
@@ -62,6 +63,15 @@ final class ExecutionTests extends TestMain {
                 List.of("tailscale", "ssh", "sungjooyoon@office-a", "echo ok"),
                 List.of("tailscale", "ssh", "sungjooyoon@office-a", "tmux attach")
         )), "remote executor uses tailscale ssh for execute and attach");
+    }
+
+    private void testProcessCallersAvoidListWrappers() throws Exception {
+        for (String file : List.of(
+                "src/main/java/dev/tailmux/tailscale/TailscaleSshExecutor.java",
+                "src/main/java/dev/tailmux/cli/DoctorCommand.java")) {
+            String source = Files.readString(Path.of(file));
+            check(!source.contains("capture(List.of(") && !source.contains("inherit(List.of("), file + " avoids process List.of wrappers");
+        }
     }
 
     private void testProductCodeDoesNotInvokePlainSsh() throws Exception {

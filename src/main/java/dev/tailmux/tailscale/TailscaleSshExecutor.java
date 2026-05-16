@@ -7,7 +7,6 @@ import dev.tailmux.exec.LocalProcess;
 import dev.tailmux.exec.RemoteExecutor;
 
 import java.io.IOException;
-import java.util.List;
 
 public final class TailscaleSshExecutor implements RemoteExecutor {
     private final TailmuxConfig config;
@@ -20,12 +19,11 @@ public final class TailscaleSshExecutor implements RemoteExecutor {
 
     @Override
     public ExecResult execute(NodeConfig node, String command) throws IOException, InterruptedException {
-        return process.capture(List.of("tailscale", "ssh", config.sshTarget(node), command));
+        return process.capture("tailscale", "ssh", config.sshTarget(node), command);
     }
 
     @Override
     public int attachInteractive(NodeConfig node, String command) throws IOException, InterruptedException {
-        return process.inherit(List.of("tailscale", "ssh", config.sshTarget(node), command));
+        return process.inherit("tailscale", "ssh", config.sshTarget(node), command);
     }
 }
-
