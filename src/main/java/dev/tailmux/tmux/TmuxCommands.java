@@ -49,7 +49,8 @@ public final class TmuxCommands {
     }
 
     public static String ensureSession(String socket, String session) {
-        return hasSession(socket, session) + " || " + newSession(socket, session) + " || " + hasSession(socket, session);
+        String has = hasSession(socket, session);
+        return has + " || " + newSession(socket, session) + " || " + has;
     }
 
     public static String attachSession(String socket, String session) {
