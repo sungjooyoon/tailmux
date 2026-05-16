@@ -5,7 +5,7 @@ import dev.tailmux.exec.PosixShell;
 import java.util.List;
 
 public final class TmuxCommands {
-    public static final String SESSION_FORMAT = "#{session_name}\\037#{session_id}\\037#{session_attached}\\037#{session_created}\\037#{session_activity}";
+    public static final String SESSION_FORMAT = "#{session_name}\\037#{session_id}\\037#{session_attached}\\037#{session_created}\\037#{session_activity}\\037#{session_windows}";
     public static final String WINDOW_FORMAT = "#{session_name}\\037#{window_index}\\037#{window_id}\\037#{window_name}\\037#{window_active}";
     public static final String PANE_FORMAT = "#{session_name}\\037#{window_index}\\037#{pane_index}\\037#{pane_id}\\037#{pane_current_path}\\037#{pane_current_command}\\037#{pane_active}";
     public static final String DISCOVERY_WINDOWS_MARKER = "\u001E_TAILMUX_WINDOWS_\u001E";

@@ -113,7 +113,7 @@ public final class CommandRouter {
     }
 
     private int list(boolean includeWindows, boolean includePanes) {
-        Renderers.renderLs(console, discovery.discoverAll(config.nodeConfigs(), true), clock, includeWindows, includePanes);
+        Renderers.renderLs(console, discovery.discoverAll(config.nodeConfigs(), includeWindows), clock, includeWindows, includePanes);
         return ExitCodes.SUCCESS;
     }
 }

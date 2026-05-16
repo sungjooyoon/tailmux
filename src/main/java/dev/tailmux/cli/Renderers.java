@@ -29,7 +29,7 @@ public final class Renderers {
                         snapshot.node().value(),
                         snapshot.status().display(),
                         session.name(),
-                        Integer.toString(session.windows().size()),
+                        Integer.toString(session.windowCount()),
                         session.attached() ? "yes" : "no",
                         relative(snapshot.lastSeenAt(), clock)
                 ));

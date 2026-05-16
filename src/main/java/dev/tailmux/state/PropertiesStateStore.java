@@ -124,7 +124,8 @@ public final class PropertiesStateStore {
                         Boolean.parseBoolean(p.getProperty(prefix + "attached", "false")),
                         longProperty(p, prefix + "created", 0L),
                         longProperty(p, prefix + "activity", 0L),
-                        windows
+                        windows,
+                        intProperty(p, prefix + "windows.total", windows.size())
                 ));
             }
             NodeStatus status = NodeStatus.valueOf(p.getProperty("status", "ONLINE"));
@@ -152,6 +153,7 @@ public final class PropertiesStateStore {
             p.setProperty(prefix + "attached", Boolean.toString(session.attached()));
             p.setProperty(prefix + "created", Long.toString(session.createdAtEpochSeconds()));
             p.setProperty(prefix + "activity", Long.toString(session.activityAtEpochSeconds()));
+            p.setProperty(prefix + "windows.total", Integer.toString(session.windowCount()));
             p.setProperty(prefix + "windows.count", Integer.toString(session.windows().size()));
             for (int w = 0; w < session.windows().size(); w++) {
                 TmuxWindow window = session.windows().get(w);

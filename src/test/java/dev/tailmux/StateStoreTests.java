@@ -1,18 +1,23 @@
 package dev.tailmux;
 
 import dev.tailmux.core.NodeId;
+import dev.tailmux.core.NodeSnapshot;
+import dev.tailmux.core.NodeStatus;
 import dev.tailmux.core.TailmuxException;
+import dev.tailmux.core.TmuxSession;
 import dev.tailmux.state.PropertiesStateStore;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 final class StateStoreTests extends TestMain {
     @Override
     void run() throws Exception {
         testStateRoundTrip();
+        testSnapshotWindowTotalRoundTrip();
         testMalformedWorkspaceFailsClearly();
         testMalformedSnapshotCountFailsClearly();
         testMissingPaneFieldsRemainReadable();
@@ -46,6 +51,17 @@ final class StateStoreTests extends TestMain {
         TailmuxException error = expectTailmuxException(() -> new PropertiesStateStore(state).loadWorkspace("work"));
         check(error.getMessage().contains("FAIL state: malformed workspace"), "malformed workspace has clear prefix");
         check(error.getMessage().contains("work.properties"), "malformed workspace includes path");
+    }
+
+    private void testSnapshotWindowTotalRoundTrip() throws Exception {
+        Path home = tempDir();
+        PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
+        store.saveSnapshot(new NodeSnapshot(NodeId.parse("office-a"), NodeStatus.ONLINE, Instant.parse("2026-05-15T19:02:13Z"),
+                List.of(new TmuxSession("default", "work", "$1", false, 1, 2, List.of(), 4))));
+
+        var session = store.loadSnapshot(NodeId.parse("office-a")).orElseThrow().sessions().getFirst();
+
+        check(session.windowCount() == 4, "snapshot window total round-trip");
     }
 
     private void testMalformedSnapshotCountFailsClearly() throws Exception {

@@ -13,6 +13,7 @@ final class TmuxParserTests {
 
     static void run(TestMain tests) throws Exception {
         testTmuxParsing(tests);
+        testSessionWindowCountParsesWithoutWindowRows(tests);
         testTmuxPaneParsing(tests);
         testEmptyAndWeirdSessionFixtures(tests);
         testOrphanWindowsAndPanesAreIgnored(tests);
@@ -45,6 +46,15 @@ final class TmuxParserTests {
         tests.check(pane.currentPath().equals("/Users/sungjooyoon/code/tailmux"), "parses pane cwd");
         tests.check(pane.currentCommand().equals("nvim"), "parses pane command");
         tests.check(pane.active(), "parses pane active");
+    }
+
+    private static void testSessionWindowCountParsesWithoutWindowRows(TestMain tests) {
+        var snapshot = TmuxParser.parse(NodeId.parse("office-a"), "default",
+                "work\u001F\u00241\u001F1\u001F1778863519\u001F1778863619\u001F7\n",
+                "",
+                Instant.parse("2026-05-15T19:02:13Z"));
+
+        tests.check(snapshot.sessions().getFirst().windowCount() == 7, "parses session_windows without window rows");
     }
 
     private static void testMalformedRowsFail(TestMain tests) {

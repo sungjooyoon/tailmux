@@ -38,7 +38,8 @@ public final class TmuxParser {
                     parts[1],
                     "1".equals(parts[2]),
                     parseLong(parts[3]),
-                    parseLong(parts[4])
+                    parseLong(parts[4]),
+                    parts.length >= 6 ? parseInt(parts[5]) : 0
             ));
         }
 
@@ -144,19 +145,21 @@ public final class TmuxParser {
         private final boolean attached;
         private final long created;
         private final long activity;
+        private final int windowCount;
         private final ArrayList<MutableWindow> windows = new ArrayList<>();
 
-        private MutableSession(String socket, String name, String id, boolean attached, long created, long activity) {
+        private MutableSession(String socket, String name, String id, boolean attached, long created, long activity, int windowCount) {
             this.socket = socket;
             this.name = name;
             this.id = id;
             this.attached = attached;
             this.created = created;
             this.activity = activity;
+            this.windowCount = windowCount;
         }
 
         private TmuxSession toSession() {
-            return new TmuxSession(socket, name, id, attached, created, activity, windows.stream().map(MutableWindow::toWindow).toList());
+            return new TmuxSession(socket, name, id, attached, created, activity, windows.stream().map(MutableWindow::toWindow).toList(), windowCount);
         }
     }
 

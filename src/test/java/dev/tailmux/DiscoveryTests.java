@@ -93,7 +93,7 @@ final class DiscoveryTests extends TestMain {
 
         int exit = new CommandRouter(configWithOneNode(), store, remote,
                 Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), new CapturingConsole())
-                .run(List.of("ls"));
+                .run(List.of("ls", "--windows"));
 
         check(exit == ExitCodes.SUCCESS, "recent offline cache exits success");
         check(remote.commandsFor("office-a").isEmpty(), "recent offline cache skips remote probe");
@@ -108,10 +108,10 @@ final class DiscoveryTests extends TestMain {
 
         int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
                 Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), new CapturingConsole())
-                .run(List.of("ls"));
+                .run(List.of("ls", "--windows"));
 
         check(exit == ExitCodes.SUCCESS, "single discovery exits success");
-        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.discover("default"))), "ls uses one discovery command");
+        check(remote.commandsFor("office-a").equals(List.of(TmuxCommands.discover("default"))), "ls --windows uses one discovery command");
     }
 
     private void testListScansConfiguredSockets() throws Exception {
@@ -145,7 +145,7 @@ final class DiscoveryTests extends TestMain {
         long started = System.nanoTime();
         int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
                 Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), new CapturingConsole())
-                .run(List.of("ls"));
+                .run(List.of("ls", "--windows"));
         long elapsedMillis = Duration.ofNanos(System.nanoTime() - started).toMillis();
 
         check(exit == ExitCodes.SUCCESS, "concurrent discovery exits success");
