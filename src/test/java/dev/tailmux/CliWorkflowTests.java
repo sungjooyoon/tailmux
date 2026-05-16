@@ -4,6 +4,9 @@ import dev.tailmux.cli.CommandRouter;
 import dev.tailmux.cli.ExitCodes;
 import dev.tailmux.config.TailmuxConfig;
 import dev.tailmux.core.NodeId;
+import dev.tailmux.core.NodeSnapshot;
+import dev.tailmux.core.NodeStatus;
+import dev.tailmux.core.TmuxSession;
 import dev.tailmux.exec.ExecResult;
 import dev.tailmux.exec.FakeRemoteExecutor;
 import dev.tailmux.state.PropertiesStateStore;
@@ -24,6 +27,7 @@ final class CliWorkflowTests extends TestMain {
         testWorkspaceCreatesOnDefaultHome();
         testWorkspaceDiscoverySkipsWindowAndPaneMetadata();
         testRegistryOwnerUnreachableDoesNotCreateDuplicate();
+        testCachedOfflineWorkspaceDoesNotCreateDuplicate();
         testDuplicateDiscoveredWorkspaceFails();
         testDiscoveredWorkspaceRemembersSocket();
         testRegisteredWorkspaceUsesStoredSocket();
@@ -89,6 +93,28 @@ final class CliWorkflowTests extends TestMain {
         check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "unreachable owner exits remote error");
         check(remote.interactiveCommands().isEmpty(), "does not attach elsewhere");
         check(remote.commandsFor("office-b").isEmpty(), "does not probe alternate node after registered owner failure");
+    }
+
+    private void testCachedOfflineWorkspaceDoesNotCreateDuplicate() throws Exception {
+        Path home = tempDir();
+        PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
+        store.saveSnapshot(new NodeSnapshot(NodeId.parse("office-a"), NodeStatus.SSH_FAILED,
+                Instant.parse("2026-05-15T19:01:55Z"),
+                List.of(new TmuxSession("default", "work", "$1", false, 1, 2, List.of(), 1))));
+
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-b", TmuxCommands.listSessions("default"), ExecResult.success(""));
+        remote.when("office-b", TmuxCommands.ensureSession("default", "work"), ExecResult.success(""));
+        CapturingConsole console = new CapturingConsole();
+
+        int exit = new CommandRouter(configWithPool(), store, remote,
+                Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), console)
+                .run(List.of("work"));
+
+        check(exit == ExitCodes.CONFIG_ERROR, "cached offline workspace blocks duplicate creation");
+        check(console.err().contains("last seen on offline node office-a"), "cached offline workspace error names owner");
+        check(!remote.commandsFor("office-b").contains(TmuxCommands.ensureSession("default", "work")), "cached offline workspace does not create elsewhere");
+        check(remote.interactiveCommands().isEmpty(), "cached offline workspace does not attach elsewhere");
     }
 
     private void testDuplicateDiscoveredWorkspaceFails() throws Exception {

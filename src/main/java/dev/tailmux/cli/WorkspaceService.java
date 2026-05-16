@@ -62,20 +62,30 @@ final class WorkspaceService {
         }
 
         ArrayList<NodeSession> matches = new ArrayList<>();
+        ArrayList<NodeSession> offlineMatches = new ArrayList<>();
         ArrayList<NodeConfig> healthy = new ArrayList<>();
         for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), false)) {
             NodeSnapshot snapshot = discovered.snapshot();
             NodeConfig node = discovered.node();
             if (snapshot.status() == NodeStatus.ONLINE) {
                 healthy.add(node);
-                for (TmuxSession session : snapshot.sessions()) {
-                    if (session.name().equals(workspaceName.value())) {
-                        matches.add(new NodeSession(node, session));
-                    }
+            }
+            for (TmuxSession session : snapshot.sessions()) {
+                if (!session.name().equals(workspaceName.value())) continue;
+                if (snapshot.status() == NodeStatus.ONLINE) {
+                    matches.add(new NodeSession(node, session));
+                } else {
+                    offlineMatches.add(new NodeSession(node, session));
                 }
             }
         }
 
+        if (!offlineMatches.isEmpty()) {
+            NodeSession match = offlineMatches.getFirst();
+            throw new TailmuxException(ExitCodes.CONFIG_ERROR,
+                    "FAIL workspace " + workspaceName.value() + " was last seen on offline node " + match.node().id().value()
+                            + "; refusing to create a duplicate. Reconnect that node or remove stale Tailmux state.");
+        }
         if (matches.size() > 1) {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR,
                     "FAIL workspace " + workspaceName.value() + " exists on multiple nodes. Use tailmux attach node:session.");
