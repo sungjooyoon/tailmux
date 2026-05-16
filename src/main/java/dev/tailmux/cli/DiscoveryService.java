@@ -95,16 +95,17 @@ final class DiscoveryService {
             ArrayList<TmuxSession> sessions = new ArrayList<>();
             for (String socket : node.sockets()) {
                 ExecResult discovery = remote.execute(node, discoveryCommand(socket, includeWindows, includePanes));
-                if (TmuxFailure.missingBinary(discovery)) {
+                TmuxFailure.Kind failure = TmuxFailure.classify(discovery);
+                if (failure == TmuxFailure.Kind.MISSING_BINARY) {
                     return failureSnapshot(node, NodeStatus.NO_TMUX, now, cached);
                 }
-                if (TmuxFailure.remoteExecution(discovery)) {
+                if (failure == TmuxFailure.Kind.REMOTE_EXECUTION) {
                     return failureSnapshot(node, NodeStatus.SSH_FAILED, now, cached);
                 }
-                if (TmuxFailure.noServer(discovery)) {
+                if (failure == TmuxFailure.Kind.NO_SERVER) {
                     continue;
                 }
-                if (!discovery.ok()) {
+                if (failure != TmuxFailure.Kind.OK) {
                     return failureSnapshot(node, NodeStatus.SSH_FAILED, now, cached);
                 }
                 TmuxParser.DiscoveryOutput output = includeWindows

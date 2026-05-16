@@ -89,9 +89,10 @@ final class DoctorCommand {
         for (String socket : node.sockets()) {
             ExecResult sessions = remote.execute(node, TmuxCommands.listSessions(socket));
             String label = node.id().value() + " tmux " + socket + " list-sessions";
-            if (TmuxFailure.noServer(sessions)) {
+            TmuxFailure.Kind failure = TmuxFailure.classify(sessions);
+            if (failure == TmuxFailure.Kind.NO_SERVER) {
                 lines.add("WARN  " + node.id().value() + " tmux " + socket + " no server currently running");
-            } else if (!sessions.ok()) {
+            } else if (failure != TmuxFailure.Kind.OK) {
                 failed = true;
                 lines.add("FAIL  " + label + " failed: " + sessions.errorText());
             } else {

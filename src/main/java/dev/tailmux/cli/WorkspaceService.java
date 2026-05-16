@@ -173,8 +173,9 @@ final class WorkspaceService {
             String socket = node.sockets().getFirst();
             ExecResult result = remote.execute(node, TmuxCommands.hasSession(socket, session));
             if (result.ok()) return socket;
-            if (TmuxFailure.remoteExecution(result) || TmuxFailure.missingBinary(result)) {
-                throw classifyTmuxCommandFailure(node, "could not find tmux session " + session, result);
+            TmuxFailure.Kind failure = TmuxFailure.classify(result);
+            if (failure == TmuxFailure.Kind.REMOTE_EXECUTION || failure == TmuxFailure.Kind.MISSING_BINARY) {
+                throw classifyTmuxCommandFailure(node, "could not find tmux session " + session, result, failure);
             }
             throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": tmux session not found on configured sockets: " + session);
         }
@@ -184,8 +185,11 @@ final class WorkspaceService {
             ExecResult result = remote.execute(node, TmuxCommands.hasSession(socket, session));
             if (result.ok()) {
                 matches.add(socket);
-            } else if (TmuxFailure.remoteExecution(result) || TmuxFailure.missingBinary(result)) {
-                throw classifyTmuxCommandFailure(node, "could not find tmux session " + session, result);
+            } else {
+                TmuxFailure.Kind failure = TmuxFailure.classify(result);
+                if (failure == TmuxFailure.Kind.REMOTE_EXECUTION || failure == TmuxFailure.Kind.MISSING_BINARY) {
+                    throw classifyTmuxCommandFailure(node, "could not find tmux session " + session, result, failure);
+                }
             }
         }
         if (matches.isEmpty()) {
@@ -198,11 +202,15 @@ final class WorkspaceService {
     }
 
     private TailmuxException classifyTmuxCommandFailure(NodeConfig node, String action, ExecResult result) {
-        if (TmuxFailure.remoteExecution(result)) {
+        return classifyTmuxCommandFailure(node, action, result, TmuxFailure.classify(result));
+    }
+
+    private TailmuxException classifyTmuxCommandFailure(NodeConfig node, String action, ExecResult result, TmuxFailure.Kind failure) {
+        if (failure == TmuxFailure.Kind.REMOTE_EXECUTION) {
             return new TailmuxException(ExitCodes.REMOTE_EXECUTION_ERROR,
                     "FAIL " + node.id().value() + ": tailscale ssh could not execute remote command.\nTry:\n  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
         }
-        if (TmuxFailure.missingBinary(result)) {
+        if (failure == TmuxFailure.Kind.MISSING_BINARY) {
             return new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": remote tmux not found");
         }
         return new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": " + action + ": " + result.errorText());

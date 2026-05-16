@@ -21,6 +21,7 @@ final class CoreTests extends TestMain {
         testTmuxEnsureSessionIsRaceTolerant();
         testTmuxDiscoveryShortCircuits();
         testTmuxNoServerClassifierAcceptsTmuxPhrasing();
+        testTmuxFailureClassifiesWithOneTextFold();
         testProductParsingAvoidsRegexHelpers();
         testControlPathAvoidsStreamPipelines();
         testTmuxCommandsAvoidListWrappers();
@@ -71,6 +72,13 @@ final class CoreTests extends TestMain {
 
     private void testTmuxNoServerClassifierAcceptsTmuxPhrasing() {
         check(TmuxFailure.noServer(ExecResult.failure(1, "", "failed to connect to server")), "classifies tmux failed-to-connect as no server");
+    }
+
+    private void testTmuxFailureClassifiesWithOneTextFold() throws Exception {
+        check(TmuxFailure.classify(ExecResult.failure(127, "", "tmux: command not found")) == TmuxFailure.Kind.MISSING_BINARY, "classifies missing tmux");
+        check(TmuxFailure.classify(ExecResult.failure(255, "", "ssh failed")) == TmuxFailure.Kind.REMOTE_EXECUTION, "classifies remote execution failure");
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxFailure.java"));
+        check(source.indexOf("toLowerCase") == source.lastIndexOf("toLowerCase"), "tmux failure classification folds text once");
     }
 
     private void testTmuxDiscoveryShortCircuits() {
