@@ -1,6 +1,7 @@
 package dev.tailmux;
 
 import dev.tailmux.core.NodeId;
+import dev.tailmux.core.TailmuxException;
 import dev.tailmux.state.PropertiesStateStore;
 
 import java.nio.file.Files;
@@ -12,6 +13,10 @@ final class StateStoreTests extends TestMain {
     @Override
     void run() throws Exception {
         testStateRoundTrip();
+        testMalformedWorkspaceFailsClearly();
+        testMalformedSnapshotCountFailsClearly();
+        testMissingPaneFieldsRemainReadable();
+        testWorkspaceWritesDeterministicKeys();
         testEventLogRedactsUnapprovedFields();
     }
 
@@ -24,6 +29,82 @@ final class StateStoreTests extends TestMain {
         check(loaded.name().value().equals("work"), "workspace name round-trip");
         check(loaded.home().value().equals("office-a"), "workspace home round-trip");
         check(Files.exists(home.resolve(".tailmux/state/workspaces/work.properties")), "workspace file exists");
+    }
+
+    private void testMalformedWorkspaceFailsClearly() throws Exception {
+        Path state = tempDir().resolve(".tailmux/state");
+        Path file = state.resolve("workspaces/work.properties");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, """
+                version=1
+                name=work
+                session=work
+                createdAt=not-an-instant
+                lastSeenAt=2026-05-15T19:02:13Z
+                """);
+
+        TailmuxException error = expectTailmuxException(() -> new PropertiesStateStore(state).loadWorkspace("work"));
+        check(error.getMessage().contains("FAIL state: malformed workspace"), "malformed workspace has clear prefix");
+        check(error.getMessage().contains("work.properties"), "malformed workspace includes path");
+    }
+
+    private void testMalformedSnapshotCountFailsClearly() throws Exception {
+        Path state = tempDir().resolve(".tailmux/state");
+        Path file = state.resolve("snapshots/office-a.properties");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, """
+                version=1
+                node=office-a
+                status=ONLINE
+                lastSeenAt=2026-05-15T19:02:13Z
+                sessions.count=two
+                """);
+
+        TailmuxException error = expectTailmuxException(() -> new PropertiesStateStore(state).loadSnapshot(NodeId.parse("office-a")));
+        check(error.getMessage().contains("FAIL state: malformed snapshot"), "malformed snapshot has clear prefix");
+        check(error.getMessage().contains("sessions.count"), "malformed snapshot names bad key");
+    }
+
+    private void testMissingPaneFieldsRemainReadable() throws Exception {
+        Path state = tempDir().resolve(".tailmux/state");
+        Path file = state.resolve("snapshots/office-a.properties");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, """
+                version=1
+                node=office-a
+                status=ONLINE
+                lastSeenAt=2026-05-15T19:02:13Z
+                sessions.count=1
+                sessions.0.name=work
+                sessions.0.windows.count=1
+                sessions.0.windows.0.index=0
+                sessions.0.windows.0.panes.count=1
+                """);
+
+        var pane = new PropertiesStateStore(state).loadSnapshot(NodeId.parse("office-a")).orElseThrow()
+                .sessions().getFirst().windows().getFirst().panes().getFirst();
+
+        check(pane.index() == 0, "missing pane index defaults");
+        check(pane.currentPath().isEmpty(), "missing pane cwd defaults");
+        check(pane.currentCommand().isEmpty(), "missing pane command defaults");
+    }
+
+    private void testWorkspaceWritesDeterministicKeys() throws Exception {
+        Path home = tempDir();
+        new PropertiesStateStore(home.resolve(".tailmux/state")).saveWorkspace("work", NodeId.parse("office-a"), "work", "socket-a",
+                Instant.parse("2026-05-15T18:12:00Z"), Instant.parse("2026-05-15T19:02:13Z"));
+
+        String file = Files.readString(home.resolve(".tailmux/state/workspaces/work.properties"));
+        check(file.equals("""
+                createdAt=2026-05-15T18:12:00Z
+                home=office-a
+                lastSeenAt=2026-05-15T19:02:13Z
+                name=work
+                session=work
+                socket=socket-a
+                transport=ssh
+                version=1
+                """), "workspace keys are deterministic");
     }
 
     private void testEventLogRedactsUnapprovedFields() throws Exception {
@@ -39,5 +120,16 @@ final class StateStoreTests extends TestMain {
         check(log.contains("node=office-a_bad"), "event log sanitizes newlines");
         check(!log.contains("secret"), "event log redacts unapproved fields");
         check(!log.contains("stdout"), "event log skips command output key");
+    }
+
+    private TailmuxException expectTailmuxException(ThrowingRunnable runnable) {
+        try {
+            runnable.run();
+            throw new AssertionError("expected TailmuxException");
+        } catch (TailmuxException e) {
+            return e;
+        } catch (Throwable t) {
+            throw new AssertionError("expected TailmuxException, got " + t, t);
+        }
     }
 }
