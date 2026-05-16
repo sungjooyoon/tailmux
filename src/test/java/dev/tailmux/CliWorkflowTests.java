@@ -26,10 +26,11 @@ final class CliWorkflowTests extends TestMain {
         testDuplicateDiscoveredWorkspaceFails();
         testDiscoveredWorkspaceRemembersSocket();
         testRegisteredWorkspaceUsesStoredSocket();
+        testRegisteredWorkspaceMissingSessionRecreatesOnlyOnOwner();
+        testExplicitHomeMustBeHealthy();
+        testAttachSelectorFindsNonDefaultSocket();
+        testAttachSelectorRejectsAmbiguousSocket();
         testWorkspaceAttachWritesEventMetadata();
-        testListRendersLiveWindowCounts();
-        testListWindowsRendersActivePaneMetadata();
-        testListPanesRendersPaneRows();
         testAttachPaneSelectsWindowAndPane();
         testAttachFailureSuggestsConfiguredSshTarget();
     }
@@ -123,6 +124,72 @@ final class CliWorkflowTests extends TestMain {
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L work attach-session -t modal")), "registered workspace uses stored socket");
     }
 
+    private void testRegisteredWorkspaceMissingSessionRecreatesOnlyOnOwner() throws Exception {
+        Path home = tempDir();
+        PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
+        store.saveWorkspace("work", NodeId.parse("office-a"), "work", "default", Instant.now(), Instant.now());
+
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
+        remote.when("office-a", TmuxCommands.hasSession("default", "work"), ExecResult.failure(1, "", "missing"));
+        remote.when("office-a", TmuxCommands.newSession("default", "work"), ExecResult.success(""));
+        remote.when("office-b", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
+
+        int exit = router(configWithPool(), remote, home).run(List.of("work"));
+
+        check(exit == ExitCodes.SUCCESS, "registered missing session recreates on owner");
+        check(remote.commandsFor("office-a").contains(TmuxCommands.newSession("default", "work")), "registered missing session creates on owner");
+        check(remote.commandsFor("office-b").isEmpty(), "registered missing session does not scan alternate node");
+    }
+
+    private void testExplicitHomeMustBeHealthy() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.failNode("office-b", ExecResult.failure(255, "", "ssh failed"));
+        remote.when("office-a", TmuxCommands.discover("default"), ExecResult.success(""));
+
+        int exit = router(configWithPool(), remote, tempDir()).run(List.of("start", "work", "--home", "office-b"));
+
+        check(exit == ExitCodes.NO_HEALTHY_HOME_NODE, "explicit unhealthy home fails");
+        check(remote.interactiveCommands().isEmpty(), "explicit unhealthy home does not attach");
+        check(!remote.commandsFor("office-a").contains(TmuxCommands.newSession("default", "work")), "explicit unhealthy home does not create on fallback");
+    }
+
+    private void testAttachSelectorFindsNonDefaultSocket() throws Exception {
+        Properties p = new Properties();
+        p.setProperty("tailmux.home.pool", "office-a");
+        p.setProperty("tailmux.node.office-a.sockets", "default,work");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
+        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.failure(1, "", "no server running"));
+        remote.when("office-a", TmuxCommands.listSessions("work"), ExecResult.success("modal\u001F\u00242\u001F0\u001F1\u001F2\n"));
+
+        int exit = router(config, remote, tempDir()).run(List.of("attach", "office-a:modal"));
+
+        check(exit == ExitCodes.SUCCESS, "attach selector finds non-default socket");
+        check(remote.interactiveCommands().equals(List.of("office-a:tmux -L work attach-session -t modal")), "attach selector uses resolved socket");
+    }
+
+    private void testAttachSelectorRejectsAmbiguousSocket() throws Exception {
+        Properties p = new Properties();
+        p.setProperty("tailmux.home.pool", "office-a");
+        p.setProperty("tailmux.node.office-a.sockets", "default,work");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
+        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("modal\u001F\u00241\u001F0\u001F1\u001F2\n"));
+        remote.when("office-a", TmuxCommands.listSessions("work"), ExecResult.success("modal\u001F\u00242\u001F0\u001F1\u001F2\n"));
+
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(config, new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
+                Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), console)
+                .run(List.of("attach", "office-a:modal"));
+
+        check(exit == ExitCodes.CONFIG_ERROR, "attach selector rejects ambiguous socket");
+        check(console.err().contains("exists on multiple sockets"), "attach selector explains socket ambiguity");
+        check(remote.interactiveCommands().isEmpty(), "attach selector does not attach ambiguous session");
+    }
+
     private void testWorkspaceAttachWritesEventMetadata() throws Exception {
         Path home = tempDir();
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
@@ -141,54 +208,6 @@ final class CliWorkflowTests extends TestMain {
         check(log.contains("node=office-a"), "workspace event logs node");
         check(log.contains("socket=default"), "workspace event logs socket");
         check(log.contains("session=work"), "workspace event logs session");
-    }
-
-    private void testListRendersLiveWindowCounts() throws Exception {
-        FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", "command -v tmux", ExecResult.success("/opt/homebrew/bin/tmux\n"));
-        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
-        remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success("work\u001F0\u001F@1\u001Feditor\u001F1\n"));
-
-        CapturingConsole console = new CapturingConsole();
-        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
-                Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), console)
-                .run(List.of("ls"));
-
-        check(exit == ExitCodes.SUCCESS, "ls exits success");
-        check(console.out().contains("work"), "ls renders session");
-        check(console.out().contains("1         no"), "ls renders live window count");
-    }
-
-    private void testListWindowsRendersActivePaneMetadata() throws Exception {
-        FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
-        remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success("work\u001F0\u001F@1\u001Feditor\u001F1\n"));
-        remote.when("office-a", TmuxCommands.listPanes("default"), ExecResult.success("work\u001F0\u001F0\u001F%1\u001F/Users/sungjooyoon/code/tailmux\u001Fnvim\u001F1\n"));
-
-        CapturingConsole console = new CapturingConsole();
-        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
-                Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), console)
-                .run(List.of("ls", "--windows"));
-
-        check(exit == ExitCodes.SUCCESS, "ls --windows exits success");
-        check(console.out().contains("/Users/sungjooyoon/code/tailmux"), "ls --windows renders active pane cwd");
-        check(console.out().contains("nvim"), "ls --windows renders active pane command");
-    }
-
-    private void testListPanesRendersPaneRows() throws Exception {
-        FakeRemoteExecutor remote = new FakeRemoteExecutor();
-        remote.when("office-a", TmuxCommands.listSessions("default"), ExecResult.success("work\u001F\u00241\u001F0\u001F1\u001F2\n"));
-        remote.when("office-a", TmuxCommands.listWindows("default"), ExecResult.success("work\u001F0\u001F@1\u001Feditor\u001F1\n"));
-        remote.when("office-a", TmuxCommands.listPanes("default"), ExecResult.success("work\u001F0\u001F1\u001F%2\u001F/tmp\u001Fzsh\u001F1\n"));
-
-        CapturingConsole console = new CapturingConsole();
-        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote,
-                Clock.fixed(Instant.parse("2026-05-15T19:02:13Z"), ZoneOffset.UTC), console)
-                .run(List.of("ls", "--panes"));
-
-        check(exit == ExitCodes.SUCCESS, "ls --panes exits success");
-        check(console.out().contains("office-a:work.0.1"), "ls --panes renders pane selector");
-        check(console.out().contains("/tmp"), "ls --panes renders pane cwd");
     }
 
     private void testAttachPaneSelectsWindowAndPane() throws Exception {

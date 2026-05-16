@@ -43,6 +43,7 @@ public class TestMain {
         TmuxParserTests.run(this);
         runSuite(new StateStoreTests());
         runSuite(new CliWorkflowTests());
+        runSuite(new ListRenderingTests());
         runSuite(new DiscoveryTests());
         runSuite(new DoctorTests());
     }
