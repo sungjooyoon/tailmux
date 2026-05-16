@@ -53,6 +53,8 @@ final class DoctorCommand {
             if (!tmux.ok()) {
                 failed = true;
                 console.out("FAIL  " + node.id().value() + " remote tmux missing");
+                console.out("Try:");
+                console.out("  tailscale ssh " + config.sshTarget(node) + " 'command -v tmux'");
                 continue;
             }
             console.out("OK    " + node.id().value() + " remote tmux found");
@@ -137,6 +139,18 @@ final class DoctorCommand {
             console.out("  tailscale ping --c=1 " + node.host());
             return;
         }
+        if (isHostKeyFailure(error)) {
+            console.out("FAIL  " + node.id().value() + " tailscale ssh host key verification failed: " + error);
+            console.out("Try:");
+            console.out("  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+            return;
+        }
+        if (isAuthFailure(error)) {
+            console.out("FAIL  " + node.id().value() + " tailscale ssh auth failed: " + error);
+            console.out("Try:");
+            console.out("  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+            return;
+        }
         console.out("FAIL  " + node.id().value() + " tailscale ssh failed: " + error);
         console.out("Try:");
         console.out("  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
@@ -145,6 +159,16 @@ final class DoctorCommand {
     private boolean isResolverFailure(String error) {
         String lower = error.toLowerCase();
         return lower.contains("could not resolve hostname") || lower.contains("nodename nor servname provided");
+    }
+
+    private boolean isHostKeyFailure(String error) {
+        String lower = error.toLowerCase();
+        return lower.contains("host key verification failed") || lower.contains("no ed25519 host key is known");
+    }
+
+    private boolean isAuthFailure(String error) {
+        String lower = error.toLowerCase();
+        return lower.contains("permission denied") || lower.contains("authentication failed");
     }
 
     private boolean pingReachable(ExecResult result) {

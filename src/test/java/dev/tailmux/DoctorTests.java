@@ -17,6 +17,10 @@ final class DoctorTests extends TestMain {
     void run() throws Exception {
         testDoctorClassification();
         testDoctorClassifiesMagicDnsFailure();
+        testDoctorClassifiesHostKeyFailure();
+        testDoctorClassifiesAuthFailure();
+        testDoctorClassifiesSshTimeout();
+        testDoctorClassifiesMissingRemoteTmux();
         testDoctorNetworkUsesSafeReadOnlyProbes();
         testDoctorNetworkTreatsDerpPongAsReachable();
         testDoctorNetworkChecksTailscaleDnsForFqdnOnly();
@@ -48,6 +52,59 @@ final class DoctorTests extends TestMain {
         check(console.out().contains("FAIL  office-a magicdns resolution failed"), "doctor classifies magicdns failure");
         check(console.out().contains("Try:"), "doctor prints next action");
         check(!console.out().contains("tailscale down"), "doctor never recommends tailscale down");
+    }
+
+    private void testDoctorClassifiesHostKeyFailure() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "echo ok", ExecResult.failure(255, "",
+                "No ED25519 host key is known for 100.126.50.79 and you have requested strict checking.\nHost key verification failed."));
+
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), console)
+                .run(List.of("doctor"));
+
+        check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "doctor host key failure exits remote error");
+        check(console.out().contains("FAIL  office-a tailscale ssh host key verification failed"), "doctor classifies host key failure");
+        check(console.out().contains("tailscale ssh office-a 'echo ok'"), "doctor host key failure suggests tailscale ssh");
+    }
+
+    private void testDoctorClassifiesAuthFailure() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "echo ok", ExecResult.failure(255, "", "Permission denied (publickey)."));
+
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), console)
+                .run(List.of("doctor"));
+
+        check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "doctor auth failure exits remote error");
+        check(console.out().contains("FAIL  office-a tailscale ssh auth failed"), "doctor classifies auth failure");
+    }
+
+    private void testDoctorClassifiesSshTimeout() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "echo ok", ExecResult.failure(124, "", "command timed out after 10s"));
+
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), console)
+                .run(List.of("doctor"));
+
+        check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "doctor ssh timeout exits remote error");
+        check(console.out().contains("FAIL  office-a tailscale ssh timed out"), "doctor classifies ssh timeout");
+        check(console.out().contains("tailscale ping --c=1 office-a"), "doctor timeout suggests tailscale ping");
+    }
+
+    private void testDoctorClassifiesMissingRemoteTmux() throws Exception {
+        FakeRemoteExecutor remote = new FakeRemoteExecutor();
+        remote.when("office-a", "echo ok", ExecResult.success("ok\n"));
+        remote.when("office-a", "command -v tmux", ExecResult.failure(127, "", "tmux: command not found"));
+
+        CapturingConsole console = new CapturingConsole();
+        int exit = new CommandRouter(configWithOneNode(), new PropertiesStateStore(tempDir().resolve(".tailmux/state")), remote, Clock.systemUTC(), console)
+                .run(List.of("doctor"));
+
+        check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "doctor missing remote tmux exits remote error");
+        check(console.out().contains("FAIL  office-a remote tmux missing"), "doctor classifies missing remote tmux");
+        check(console.out().contains("tailscale ssh office-a 'command -v tmux'"), "doctor missing remote tmux gives safe check");
     }
 
     private void testDoctorNetworkUsesSafeReadOnlyProbes() throws Exception {
