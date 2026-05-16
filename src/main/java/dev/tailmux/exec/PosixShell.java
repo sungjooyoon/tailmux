@@ -10,7 +10,7 @@ public final class PosixShell {
         if (value.isEmpty()) {
             return "''";
         }
-        if (value.matches("[A-Za-z0-9_@%+=:,./-]+")) {
+        if (isSafeUnquoted(value)) {
             return value;
         }
         return "'" + value.replace("'", "'\"'\"'") + "'";
@@ -26,5 +26,16 @@ public final class PosixShell {
         }
         return builder.toString();
     }
-}
 
+    private static boolean isSafeUnquoted(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+                    || c == '_' || c == '@' || c == '%' || c == '+' || c == '=' || c == ':' || c == ',' || c == '.' || c == '/' || c == '-') {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+}
