@@ -49,8 +49,7 @@ public final class TestMain {
         testLocalProcessTimeout();
         testLocalProcessDefaultTimeoutFailsFast();
         testLocalProcessLargeOutputDoesNotDeadlock();
-        testTmuxParsing();
-        testTmuxPaneParsing();
+        TmuxParserTests.run(this);
         testStateRoundTrip();
         testEventLogRedactsUnapprovedFields();
         testCommandRouting();
@@ -156,39 +155,6 @@ public final class TestMain {
         ExecResult result = new LocalProcess().capture(List.of("sh", "-lc", "yes x | head -n 200000"), Duration.ofSeconds(5));
         check(result.exitCode() == 0, "large output command exits successfully");
         check(result.stdout().length() > 200000, "large output is captured");
-    }
-
-    private void testTmuxParsing() {
-        Instant seen = Instant.parse("2026-05-15T19:02:13Z");
-        String sessions = """
-                work\u001F\u00241\u001F1\u001F1778863519\u001F1778863619
-                scratch\u001F\u00242\u001F0\u001F1778863510\u001F1778863511
-                """;
-        String windows = """
-                work\u001F0\u001F@0\u001Feditor\u001F1
-                work\u001F1\u001F@1\u001Fshell\u001F0
-                scratch\u001F0\u001F@2\u001Fzsh\u001F1
-                """;
-
-        var snapshot = TmuxParser.parse(NodeId.parse("office-a"), "default", sessions, windows, seen);
-        check(snapshot.sessions().size() == 2, "parses sessions");
-        check(snapshot.sessions().getFirst().attached(), "parses attached flag");
-        check(snapshot.sessions().getFirst().windows().size() == 2, "joins windows to sessions");
-        check(snapshot.sessions().getFirst().windows().getFirst().name().equals("editor"), "parses window name");
-    }
-
-    private void testTmuxPaneParsing() {
-        Instant seen = Instant.parse("2026-05-15T19:02:13Z");
-        String sessions = "work\u001F\u00241\u001F1\u001F1778863519\u001F1778863619\n";
-        String windows = "work\u001F0\u001F@0\u001Feditor\u001F1\n";
-        String panes = "work\u001F0\u001F0\u001F%1\u001F/Users/sungjooyoon/code/tailmux\u001Fnvim\u001F1\n";
-
-        var snapshot = TmuxParser.parse(NodeId.parse("office-a"), "default", sessions, windows, panes, seen);
-        var pane = snapshot.sessions().getFirst().windows().getFirst().panes().getFirst();
-
-        check(pane.currentPath().equals("/Users/sungjooyoon/code/tailmux"), "parses pane cwd");
-        check(pane.currentCommand().equals("nvim"), "parses pane command");
-        check(pane.active(), "parses pane active");
     }
 
     private void testStateRoundTrip() throws Exception {
@@ -585,7 +551,7 @@ public final class TestMain {
         return Files.createTempDirectory("tailmux-test-");
     }
 
-    private void check(boolean condition, String name) {
+    void check(boolean condition, String name) {
         if (condition) {
             passed++;
             return;
@@ -594,7 +560,7 @@ public final class TestMain {
         System.err.println("FAIL " + name);
     }
 
-    private void expectThrows(Class<? extends Throwable> type, ThrowingRunnable runnable, String name) {
+    void expectThrows(Class<? extends Throwable> type, ThrowingRunnable runnable, String name) {
         try {
             runnable.run();
             failed++;
@@ -610,7 +576,7 @@ public final class TestMain {
     }
 
     @FunctionalInterface
-    private interface ThrowingRunnable {
+    interface ThrowingRunnable {
         void run() throws Throwable;
     }
 
