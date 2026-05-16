@@ -226,7 +226,25 @@ final class DoctorCommand {
     }
 
     private boolean shouldCheckTailscaleDns(String host) {
-        return host.contains(".") && !host.matches("\\d+\\.\\d+\\.\\d+\\.\\d+");
+        return host.contains(".") && !looksLikeIpv4(host);
+    }
+
+    private boolean looksLikeIpv4(String host) {
+        int octets = 1;
+        boolean digit = false;
+        for (int i = 0; i < host.length(); i++) {
+            char c = host.charAt(i);
+            if (c == '.') {
+                if (!digit) return false;
+                octets++;
+                digit = false;
+            } else if (c >= '0' && c <= '9') {
+                digit = true;
+            } else {
+                return false;
+            }
+        }
+        return octets == 4 && digit;
     }
 
     private record NodeDoctorResult(boolean failed, List<String> lines) {

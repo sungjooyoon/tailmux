@@ -7,17 +7,20 @@ import dev.tailmux.exec.PosixShell;
 import dev.tailmux.tmux.TmuxCommands;
 import dev.tailmux.tmux.TmuxFailure;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 final class CoreTests extends TestMain {
     @Override
-    void run() {
+    void run() throws Exception {
         testWorkspaceNameValidation();
         testSelectorParsing();
         testShellQuoting();
         testTmuxEnsureSessionIsRaceTolerant();
         testTmuxDiscoveryShortCircuits();
         testTmuxNoServerClassifierAcceptsTmuxPhrasing();
+        testProductParsingAvoidsRegexHelpers();
     }
 
     private void testWorkspaceNameValidation() {
@@ -66,5 +69,20 @@ final class CoreTests extends TestMain {
         String command = TmuxCommands.discover("default");
         check(command.contains(" && "), "tmux discovery short-circuits between probes");
         check(!command.contains(" ; "), "tmux discovery avoids unconditional probe separators");
+    }
+
+    private void testProductParsingAvoidsRegexHelpers() throws Exception {
+        boolean regexHelper = Files.walk(Path.of("src/main/java"))
+                .filter(path -> path.toString().endsWith(".java"))
+                .map(path -> {
+                    try {
+                        return Files.readString(path);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .anyMatch(source -> source.contains(".matches(") || source.contains(".split(") || source.contains(".replaceAll("));
+
+        check(!regexHelper, "product parsing avoids regex helpers");
     }
 }

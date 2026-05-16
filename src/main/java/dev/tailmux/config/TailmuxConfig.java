@@ -8,11 +8,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.StringTokenizer;
 
 public final class TailmuxConfig {
     private final Optional<String> user;
@@ -98,7 +100,13 @@ public final class TailmuxConfig {
     }
 
     private static List<String> parseCsv(String raw) {
-        return List.of(raw.split(",")).stream().map(String::trim).filter(value -> !value.isEmpty()).toList();
+        ArrayList<String> values = new ArrayList<>();
+        StringTokenizer tokens = new StringTokenizer(raw, ",");
+        while (tokens.hasMoreTokens()) {
+            String value = tokens.nextToken().trim();
+            if (!value.isEmpty()) values.add(value);
+        }
+        return values;
     }
 
     private static Optional<String> optional(String raw) {

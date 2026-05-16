@@ -242,7 +242,17 @@ public final class PropertiesStateStore {
     }
 
     private static String clean(String value) {
-        return value == null ? "" : value.replaceAll("[\\r\\n\\t]", "_");
+        if (value == null) return "";
+        StringBuilder cleaned = null;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            boolean unsafe = c == '\r' || c == '\n' || c == '\t';
+            if (unsafe && cleaned == null) {
+                cleaned = new StringBuilder(value.length()).append(value, 0, i);
+            }
+            if (cleaned != null) cleaned.append(unsafe ? '_' : c);
+        }
+        return cleaned == null ? value : cleaned.toString();
     }
 
     private static String required(Properties p, String name) {
