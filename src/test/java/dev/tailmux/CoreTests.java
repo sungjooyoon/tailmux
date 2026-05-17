@@ -18,6 +18,7 @@ final class CoreTests extends TestMain {
         testSelectorParsing();
         testShellQuoting();
         testShellQuotingAvoidsReplaceHelper();
+        testLauncherArgStripAvoidsPathReplace();
         testTmuxEnsureSessionIsRaceTolerant();
         testTmuxDiscoveryShortCircuits();
         testTmuxNoServerClassifierAcceptsTmuxPhrasing();
@@ -63,6 +64,11 @@ final class CoreTests extends TestMain {
     private void testShellQuotingAvoidsReplaceHelper() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/exec/PosixShell.java"));
         check(!source.contains(".replace("), "shell quoting avoids replace helper");
+    }
+
+    private void testLauncherArgStripAvoidsPathReplace() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/Main.java"));
+        check(!source.contains(".replace("), "launcher arg strip checks slash variants without allocating replacement strings");
     }
 
     private void testTmuxEnsureSessionIsRaceTolerant() {

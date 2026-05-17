@@ -47,10 +47,16 @@ public final class Main {
         if (args.length == 0) {
             return List.of();
         }
-        String first = args[0].replace('\\', '/');
-        if (first.endsWith("scripts/tailmux") || first.endsWith("./scripts/tailmux")) {
+        if (isLauncherScript(args[0])) {
             return Arrays.asList(args).subList(1, args.length);
         }
         return Arrays.asList(args);
+    }
+
+    private static boolean isLauncherScript(String value) {
+        return value.endsWith("scripts/tailmux")
+                || value.endsWith("./scripts/tailmux")
+                || value.endsWith("scripts\\tailmux")
+                || value.endsWith(".\\scripts\\tailmux");
     }
 }
