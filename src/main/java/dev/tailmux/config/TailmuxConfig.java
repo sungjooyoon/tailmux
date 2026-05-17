@@ -93,9 +93,14 @@ public final class TailmuxConfig {
     }
 
     private static List<NodeId> parseNodeList(String raw) {
-        List<String> values = parseCsv(raw);
-        ArrayList<NodeId> nodes = new ArrayList<>(values.size());
-        for (String value : values) nodes.add(NodeId.parse(value));
+        ArrayList<NodeId> nodes = new ArrayList<>();
+        int start = 0;
+        for (int i = 0; i <= raw.length(); i++) {
+            if (i < raw.length() && raw.charAt(i) != ',') continue;
+            String value = Ascii.trim(raw, start, i);
+            if (!value.isEmpty()) nodes.add(NodeId.parse(value));
+            start = i + 1;
+        }
         return nodes;
     }
 

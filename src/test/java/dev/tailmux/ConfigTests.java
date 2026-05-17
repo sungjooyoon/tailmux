@@ -20,6 +20,7 @@ final class ConfigTests extends TestMain {
         testDefaultSocketListIsCanonical();
         testConfigParsingUsesAsciiScanners();
         testConfigKeepsOneOrderedNodeIndex();
+        testHomePoolParsingAvoidsStringListHop();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -94,5 +95,10 @@ final class ConfigTests extends TestMain {
     private void testConfigKeepsOneOrderedNodeIndex() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
         check(!source.contains("Map<NodeId") && !source.contains("Map.copyOf") && !source.contains("new LinkedHashMap"), "config uses ordered node list as its single node index");
+    }
+
+    private void testHomePoolParsingAvoidsStringListHop() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        check(!source.contains("List<String> values = parseCsv(raw)"), "home pool parser avoids intermediate string list");
     }
 }
