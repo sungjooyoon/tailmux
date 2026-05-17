@@ -27,6 +27,7 @@ final class CliWorkflowTests extends TestMain {
         testCommandRoutingAvoidsBuiltinList();
         testParsedCommandAvoidsDefensiveArgCopy();
         testCommandRoutingAvoidsHomeOptionalWrappers();
+        testWorkspaceShorthandAvoidsSingletonArgCopy();
         testCommandFlagsAvoidRepeatedContainsScans();
         testWorkspaceCreatesOnDefaultHome();
         testWorkspaceSelectionAvoidsTransientMatchLists();
@@ -74,6 +75,11 @@ final class CliWorkflowTests extends TestMain {
         String router = Files.readString(Path.of("src/main/java/dev/tailmux/cli/CommandRouter.java"));
         String workspace = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
         check(!parsed.contains("Optional<") && !router.contains("Optional.") && !workspace.contains("Optional<NodeId> explicitHome"), "routing carries explicit home without optional wrappers");
+    }
+
+    private void testWorkspaceShorthandAvoidsSingletonArgCopy() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/CommandRouter.java"));
+        check(!source.contains("List.of(first)"), "workspace shorthand reuses owned argv instead of singleton copy");
     }
 
     private void testCommandFlagsAvoidRepeatedContainsScans() throws Exception {

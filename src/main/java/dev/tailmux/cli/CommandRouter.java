@@ -44,7 +44,7 @@ public final class CommandRouter {
         String first = args.getFirst();
         return switch (first) {
             case "doctor", "nodes", "ls", "attach", "start", "help" -> parseBuiltin(first, args.subList(1, args.size()));
-            default -> new ParsedCommand("workspace", List.of(first), null);
+            default -> new ParsedCommand("workspace", args, null);
         };
     }
 
