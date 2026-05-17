@@ -28,7 +28,14 @@ public final class Ascii {
         return end == value.length() ? value : value.substring(0, end);
     }
 
-    private static boolean whitespace(char c) {
+    public static String trimLeft(String value) {
+        if (value == null || value.isEmpty()) return "";
+        int start = 0;
+        while (start < value.length() && whitespace(value.charAt(start))) start++;
+        return start == 0 ? value : value.substring(start);
+    }
+
+    public static boolean whitespace(char c) {
         return c == ' ' || c == '\n' || c == '\r' || c == '\t';
     }
 }
