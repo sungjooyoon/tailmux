@@ -29,6 +29,8 @@ final class StateStoreTests extends TestMain {
         testSnapshotWriteCachesNestedLists();
         testEventLogSortsApprovedFieldsOnly();
         testEventLogFormatsTimestampOnce();
+        testEventLogUsesFixedFieldOrder();
+        testStateRequiredFieldsUseAsciiChecks();
     }
 
     private void testStateRoundTrip() throws Exception {
@@ -181,6 +183,17 @@ final class StateStoreTests extends TestMain {
     private void testEventLogFormatsTimestampOnce() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
         check(count(source, "at.toString()") == 1, "event log formats timestamp once");
+    }
+
+    private void testEventLogUsesFixedFieldOrder() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(!source.contains("EVENT_FIELDS.contains"), "event log iterates fixed field schema instead of membership scanning");
+        check(!source.contains("Collections.sort(names)"), "event log avoids sorting fixed schema fields");
+    }
+
+    private void testStateRequiredFieldsUseAsciiChecks() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(!source.contains(".isBlank("), "state required field checks use ascii scanner");
     }
 
     private int count(String source, String needle) {

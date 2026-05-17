@@ -10,6 +10,7 @@ import dev.tailmux.core.TmuxSession;
 import dev.tailmux.core.TmuxWindow;
 import dev.tailmux.core.Workspace;
 import dev.tailmux.core.WorkspaceName;
+import dev.tailmux.text.Ascii;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,15 +19,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
 
 public final class PropertiesStateStore {
-    private static final Set<String> EVENT_FIELDS = Set.of("command", "node", "session", "socket", "status", "transport", "workspace");
+    private static final String[] EVENT_FIELDS = {"command", "node", "session", "socket", "status", "transport", "workspace"};
     private final Path stateDir;
 
     public PropertiesStateStore(Path stateDir) {
@@ -185,16 +184,12 @@ public final class PropertiesStateStore {
         try {
             Files.createDirectories(stateDir.resolve("events"));
             String timestamp = at.toString();
-            ArrayList<String> names = new ArrayList<>(EVENT_FIELDS.size());
-            for (String name : fields.keySet()) {
-                if (EVENT_FIELDS.contains(name)) names.add(name);
-            }
-            Collections.sort(names);
             StringBuilder line = new StringBuilder("timestamp=")
                     .append(clean(timestamp))
                     .append(" event=")
                     .append(clean(event));
-            for (String name : names) {
+            for (String name : EVENT_FIELDS) {
+                if (!fields.containsKey(name)) continue;
                 line.append(' ').append(name).append('=').append(clean(fields.get(name)));
             }
             line.append('\n');
@@ -267,7 +262,7 @@ public final class PropertiesStateStore {
 
     private static String required(Properties p, String name) {
         String value = p.getProperty(name);
-        if (value == null || value.isBlank()) {
+        if (!Ascii.hasText(value)) {
             throw new IllegalArgumentException(name + " is required");
         }
         return value;
