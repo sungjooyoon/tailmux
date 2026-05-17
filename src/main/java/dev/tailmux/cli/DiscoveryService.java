@@ -84,9 +84,8 @@ final class DiscoveryService {
         if (snapshot.status() == NodeStatus.ONLINE || snapshot.status() == NodeStatus.NO_TMUX) {
             return snapshot;
         }
-        return cached
-                .map(value -> value.withStatus(NodeStatus.OFFLINE))
-                .orElse(snapshot.withStatus(NodeStatus.OFFLINE));
+        if (cached.isPresent()) return cached.get().withStatus(NodeStatus.OFFLINE);
+        return snapshot.withStatus(NodeStatus.OFFLINE);
     }
 
     private NodeSnapshot discover(NodeConfig node, boolean includeWindows, boolean includePanes, Optional<NodeSnapshot> cached) {
@@ -128,10 +127,10 @@ final class DiscoveryService {
     }
 
     private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now, Optional<NodeSnapshot> cached) {
-        return cached
-                .filter(snapshot -> !snapshot.sessions().isEmpty())
-                .map(snapshot -> snapshot.withStatus(NodeStatus.OFFLINE))
-                .orElseGet(() -> save(new NodeSnapshot(node.id(), status, now, List.of())));
+        if (cached.isPresent() && !cached.get().sessions().isEmpty()) {
+            return cached.get().withStatus(NodeStatus.OFFLINE);
+        }
+        return save(new NodeSnapshot(node.id(), status, now, List.of()));
     }
 
     private NodeSnapshot save(NodeSnapshot snapshot) {
