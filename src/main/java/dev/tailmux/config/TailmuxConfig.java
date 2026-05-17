@@ -10,31 +10,19 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
 public final class TailmuxConfig {
-    private final Optional<String> user;
     private final NodeId defaultHome;
     private final List<NodeId> homePool;
     private final List<NodeConfig> nodeConfigs;
-    private final Map<NodeId, String> sshTargets;
-    private final Map<NodeId, NodeConfig> nodes;
 
-    private TailmuxConfig(Optional<String> user, NodeId defaultHome, List<NodeId> homePool, Map<NodeId, NodeConfig> nodes) {
-        this.user = user;
+    private TailmuxConfig(NodeId defaultHome, List<NodeId> homePool, List<NodeConfig> nodeConfigs) {
         this.defaultHome = defaultHome;
         this.homePool = List.copyOf(homePool);
-        this.nodes = Map.copyOf(nodes);
-        ArrayList<NodeConfig> configs = new ArrayList<>(this.homePool.size());
-        for (NodeId id : this.homePool) configs.add(this.nodes.get(id));
-        this.nodeConfigs = List.copyOf(configs);
-        Map<NodeId, String> targets = new LinkedHashMap<>();
-        for (NodeConfig node : this.nodeConfigs) targets.put(node.id(), buildSshTarget(node));
-        this.sshTargets = Map.copyOf(targets);
+        this.nodeConfigs = List.copyOf(nodeConfigs);
     }
 
     public static TailmuxConfig load(Path home) {
@@ -63,14 +51,16 @@ public final class TailmuxConfig {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: tailmux.home.default must be in tailmux.home.pool");
         }
 
-        Map<NodeId, NodeConfig> nodes = new LinkedHashMap<>();
+        Optional<String> globalUser = optional(properties.getProperty("tailmux.user", ""));
+        ArrayList<NodeConfig> nodes = new ArrayList<>(pool.size());
         for (NodeId id : pool) {
             String prefix = "tailmux.node." + id.value() + ".";
             String host = properties.getProperty(prefix + "host", id.value());
-            nodes.put(id, new NodeConfig(id, host, optional(properties.getProperty(prefix + "user", "")), parseSockets(properties.getProperty(prefix + "sockets", ""))));
+            Optional<String> nodeUser = optional(properties.getProperty(prefix + "user", ""));
+            nodes.add(new NodeConfig(id, host, nodeUser, parseSockets(properties.getProperty(prefix + "sockets", "")), buildSshTarget(globalUser, nodeUser, host)));
         }
 
-        return new TailmuxConfig(optional(properties.getProperty("tailmux.user", "")), defaultHome, pool, nodes);
+        return new TailmuxConfig(defaultHome, pool, nodes);
     }
 
     public NodeId defaultHome() {
@@ -86,22 +76,20 @@ public final class TailmuxConfig {
     }
 
     public NodeConfig node(NodeId id) {
-        NodeConfig config = nodes.get(id);
-        if (config == null) {
-            throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: unknown node " + id.value());
+        for (NodeConfig config : nodeConfigs) {
+            if (config.id().equals(id)) return config;
         }
-        return config;
+        throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: unknown node " + id.value());
     }
 
     public String sshTarget(NodeConfig node) {
-        String target = sshTargets.get(node.id());
-        return target == null ? buildSshTarget(node) : target;
+        return node.sshTarget();
     }
 
-    private String buildSshTarget(NodeConfig node) {
-        if (node.user().isPresent()) return node.user().get() + "@" + node.host();
-        if (user.isPresent()) return user.get() + "@" + node.host();
-        return node.host();
+    private static String buildSshTarget(Optional<String> globalUser, Optional<String> nodeUser, String host) {
+        if (nodeUser.isPresent()) return nodeUser.get() + "@" + Ascii.trim(host);
+        if (globalUser.isPresent()) return globalUser.get() + "@" + Ascii.trim(host);
+        return host;
     }
 
     private static List<NodeId> parseNodeList(String raw) {

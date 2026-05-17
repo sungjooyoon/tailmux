@@ -19,6 +19,7 @@ final class ConfigTests extends TestMain {
         testSshTargetBuildAvoidsOptionalMap();
         testDefaultSocketListIsCanonical();
         testConfigParsingUsesAsciiScanners();
+        testConfigKeepsOneOrderedNodeIndex();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -88,5 +89,10 @@ final class ConfigTests extends TestMain {
         check(!config.contains("StringTokenizer"), "config csv parsing avoids tokenizer allocation");
         check(!config.contains(".trim()"), "config parsing uses ascii trim helpers");
         check(!node.contains(".isBlank("), "node config uses ascii text checks");
+    }
+
+    private void testConfigKeepsOneOrderedNodeIndex() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        check(!source.contains("Map<NodeId") && !source.contains("Map.copyOf") && !source.contains("new LinkedHashMap"), "config uses ordered node list as its single node index");
     }
 }
