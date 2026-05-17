@@ -1,5 +1,7 @@
 package dev.tailmux.exec;
 
+import dev.tailmux.text.Ascii;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -38,7 +40,7 @@ public class LocalProcess {
             process.waitFor();
             String out = new String(join(stdout), StandardCharsets.UTF_8);
             String err = new String(join(stderr), StandardCharsets.UTF_8);
-            return ExecResult.failure(124, out, ("command timed out after " + durationText(timeout) + "\n" + err).stripTrailing());
+            return ExecResult.failure(124, out, Ascii.trimRight("command timed out after " + durationText(timeout) + "\n" + err));
         }
         int exit = process.exitValue();
         return new ExecResult(exit, new String(join(stdout), StandardCharsets.UTF_8), new String(join(stderr), StandardCharsets.UTF_8));

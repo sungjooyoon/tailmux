@@ -71,6 +71,7 @@ final class ExecutionTests extends TestMain {
         check(ExecResult.failure(1, "", " err \n").errorText().equals("err"), "error text trims stderr");
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/exec/ExecResult.java"));
         check(!source.contains(".strip(") && !source.contains(".isBlank("), "exec result avoids unicode strip/isBlank scans");
+        check(!Files.readString(Path.of("src/main/java/dev/tailmux/exec/LocalProcess.java")).contains("stripTrailing"), "local process timeout trimming uses ascii helper");
     }
 
     private void testProcessCallersAvoidListWrappers() throws Exception {

@@ -21,6 +21,13 @@ public final class Ascii {
         return start == 0 && end == value.length() ? value : value.substring(start, end);
     }
 
+    public static String trimRight(String value) {
+        if (value == null || value.isEmpty()) return "";
+        int end = value.length();
+        while (end > 0 && whitespace(value.charAt(end - 1))) end--;
+        return end == value.length() ? value : value.substring(0, end);
+    }
+
     private static boolean whitespace(char c) {
         return c == ' ' || c == '\n' || c == '\r' || c == '\t';
     }
