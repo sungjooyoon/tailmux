@@ -100,7 +100,8 @@ public final class TailmuxConfig {
 
     private String buildSshTarget(NodeConfig node) {
         if (node.user().isPresent()) return node.user().get() + "@" + node.host();
-        return user.map(value -> value + "@" + node.host()).orElse(node.host());
+        if (user.isPresent()) return user.get() + "@" + node.host();
+        return node.host();
     }
 
     private static List<NodeId> parseNodeList(String raw) {

@@ -16,6 +16,7 @@ final class ConfigTests extends TestMain {
         testPerNodeUserOverridesGlobalUser();
         testNodeConfigsAreCached();
         testSshTargetsAreCached();
+        testSshTargetBuildAvoidsOptionalMap();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -63,5 +64,10 @@ final class ConfigTests extends TestMain {
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
 
         check(config.sshTarget(config.node(NodeId.parse("office-a"))) == config.sshTarget(config.node(NodeId.parse("office-a"))), "ssh target string is cached");
+    }
+
+    private void testSshTargetBuildAvoidsOptionalMap() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        check(!source.contains("user.map("), "ssh target construction avoids Optional.map allocation");
     }
 }
