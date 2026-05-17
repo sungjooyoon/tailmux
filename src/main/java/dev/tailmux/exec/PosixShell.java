@@ -1,7 +1,5 @@
 package dev.tailmux.exec;
 
-import java.util.List;
-
 public final class PosixShell {
     private PosixShell() {
     }
@@ -24,12 +22,6 @@ public final class PosixShell {
             quote = value.indexOf('\'', start);
         }
         return escaped.append(value, start, value.length()).append('\'').toString();
-    }
-
-    public static String join(List<String> args) {
-        StringBuilder builder = new StringBuilder();
-        for (String arg : args) append(builder, arg);
-        return builder.toString();
     }
 
     public static String join(String... args) {

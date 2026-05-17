@@ -20,6 +20,7 @@ final class CoreTests extends TestMain {
         testSelectorIndexParsingAvoidsSubstrings();
         testShellQuoting();
         testShellQuotingAvoidsReplaceHelper();
+        testShellJoinKeepsOnlyVarargsApi();
         testLauncherArgStripAvoidsPathReplace();
         testTmuxEnsureSessionIsRaceTolerant();
         testTmuxDiscoveryShortCircuits();
@@ -75,13 +76,18 @@ final class CoreTests extends TestMain {
         check(PosixShell.quote("plain").equals("plain"), "plain word unquoted");
         check(PosixShell.quote("two words").equals("'two words'"), "spaces quoted");
         check(PosixShell.quote("a'b").equals("'a'\"'\"'b'"), "single quote escaped");
-        check(PosixShell.join(List.of("tmux", "new-session", "-d", "-s", "work space"))
+        check(PosixShell.join("tmux", "new-session", "-d", "-s", "work space")
                 .equals("tmux new-session -d -s 'work space'"), "join quotes only needed args");
     }
 
     private void testShellQuotingAvoidsReplaceHelper() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/exec/PosixShell.java"));
         check(!source.contains(".replace("), "shell quoting avoids replace helper");
+    }
+
+    private void testShellJoinKeepsOnlyVarargsApi() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/exec/PosixShell.java"));
+        check(!source.contains("join(List<String>"), "shell join exposes only varargs API used by production");
     }
 
     private void testLauncherArgStripAvoidsPathReplace() throws Exception {
