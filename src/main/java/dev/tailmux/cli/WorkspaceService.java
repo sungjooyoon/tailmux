@@ -21,7 +21,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 final class WorkspaceService {
@@ -144,13 +143,12 @@ final class WorkspaceService {
 
     private int rememberAndAttach(String header, WorkspaceName workspace, NodeConfig node, String session, String socket, Instant createdAt) throws IOException, InterruptedException {
         store.saveWorkspace(workspace.value(), node.id(), session, socket, createdAt, clock.instant());
-        store.appendEvent(clock.instant(), "workspace", Map.of(
+        store.appendEvent(clock.instant(), "workspace",
                 "workspace", workspace.value(),
                 "node", node.id().value(),
                 "socket", socket,
                 "session", session,
-                "transport", "ssh"
-        ));
+                "transport", "ssh");
         printWorkspace(header, workspace.value(), node.id());
         return attach(node, socket, session);
     }

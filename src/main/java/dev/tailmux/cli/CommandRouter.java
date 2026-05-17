@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public final class CommandRouter {
@@ -54,7 +53,7 @@ public final class CommandRouter {
         try {
             store.ensureWritable();
             ParsedCommand parsed = classify(args);
-            store.appendEvent(clock.instant(), "command", Map.of("command", parsed.command()));
+            store.appendEvent(clock.instant(), "command", "command", parsed.command());
             return switch (parsed.command()) {
                 case "doctor" -> doctor(parsed.args());
                 case "nodes" -> nodes();

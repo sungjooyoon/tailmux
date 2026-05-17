@@ -181,6 +181,17 @@ public final class PropertiesStateStore {
     }
 
     public void appendEvent(Instant at, String event, Map<String, String> fields) {
+        appendEvent(at, event, fields, null);
+    }
+
+    public void appendEvent(Instant at, String event, String... fields) {
+        if ((fields.length & 1) != 0) {
+            throw new IllegalArgumentException("event fields must be key/value pairs");
+        }
+        appendEvent(at, event, null, fields);
+    }
+
+    private void appendEvent(Instant at, String event, Map<String, String> fieldMap, String[] fieldPairs) {
         try {
             Files.createDirectories(stateDir.resolve("events"));
             String timestamp = at.toString();
@@ -189,8 +200,9 @@ public final class PropertiesStateStore {
                     .append(" event=")
                     .append(clean(event));
             for (String name : EVENT_FIELDS) {
-                if (!fields.containsKey(name)) continue;
-                line.append(' ').append(name).append('=').append(clean(fields.get(name)));
+                String value = fieldMap == null ? pairValue(fieldPairs, name) : fieldMap.get(name);
+                if (value == null) continue;
+                line.append(' ').append(name).append('=').append(clean(value));
             }
             line.append('\n');
             Files.writeString(stateDir.resolve("events").resolve(timestamp.substring(0, 10) + ".log"),
@@ -198,6 +210,13 @@ public final class PropertiesStateStore {
         } catch (IOException e) {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL state: could not write event log: " + e.getMessage(), e);
         }
+    }
+
+    private static String pairValue(String[] fields, String name) {
+        for (int i = 0; i < fields.length; i += 2) {
+            if (name.equals(fields[i])) return fields[i + 1];
+        }
+        return null;
     }
 
     private Properties load(Path path) {

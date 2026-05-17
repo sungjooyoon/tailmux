@@ -31,6 +31,8 @@ final class StateStoreTests extends TestMain {
         testEventLogFormatsTimestampOnce();
         testEventLogUsesFixedFieldOrder();
         testStateRequiredFieldsUseAsciiChecks();
+        testEventLogSupportsPairFastPath();
+        testRuntimeEventLoggingAvoidsMapFactories();
     }
 
     private void testStateRoundTrip() throws Exception {
@@ -194,6 +196,24 @@ final class StateStoreTests extends TestMain {
     private void testStateRequiredFieldsUseAsciiChecks() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
         check(!source.contains(".isBlank("), "state required field checks use ascii scanner");
+    }
+
+    private void testEventLogSupportsPairFastPath() throws Exception {
+        Path home = tempDir();
+        PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
+        store.appendEvent(Instant.parse("2026-05-15T19:02:13Z"), "command", "command", "ls", "stdout", "secret");
+
+        String log = Files.readString(home.resolve(".tailmux/state/events/2026-05-15.log"));
+
+        check(log.contains("event=command"), "pair event log writes event type");
+        check(log.contains("command=ls"), "pair event log writes approved field");
+        check(!log.contains("secret"), "pair event log redacts unapproved field");
+    }
+
+    private void testRuntimeEventLoggingAvoidsMapFactories() throws Exception {
+        String router = Files.readString(Path.of("src/main/java/dev/tailmux/cli/CommandRouter.java"));
+        String workspace = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
+        check(!router.contains("Map.of(") && !workspace.contains("Map.of("), "runtime event logging avoids map factory allocation");
     }
 
     private int count(String source, String needle) {
