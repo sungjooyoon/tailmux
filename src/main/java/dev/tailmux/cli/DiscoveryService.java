@@ -127,8 +127,9 @@ final class DiscoveryService {
     }
 
     private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now, Optional<NodeSnapshot> cached) {
-        if (cached.isPresent() && !cached.get().sessions().isEmpty()) {
-            return cached.get().withStatus(NodeStatus.OFFLINE);
+        if (cached.isPresent()) {
+            NodeSnapshot snapshot = cached.get();
+            if (!snapshot.sessions().isEmpty()) return snapshot.withStatus(NodeStatus.OFFLINE);
         }
         return save(new NodeSnapshot(node.id(), status, now, List.of()));
     }

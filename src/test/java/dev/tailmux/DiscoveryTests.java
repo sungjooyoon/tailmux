@@ -31,6 +31,7 @@ final class DiscoveryTests extends TestMain {
         testDiscoveryLoadsCachedSnapshotOnce();
         testDiscoveryDoesNotCopyInternalResults();
         testDiscoveryFallbackAvoidsOptionalPipelines();
+        testFailureSnapshotReadsCacheOnce();
     }
 
     private void testOfflineCachedRendering() throws Exception {
@@ -178,5 +179,19 @@ final class DiscoveryTests extends TestMain {
     private void testDiscoveryFallbackAvoidsOptionalPipelines() throws Exception {
         String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DiscoveryService.java"));
         check(!source.contains(".map(") && !source.contains(".filter(") && !source.contains(".orElseGet("), "discovery fallback paths are explicit branches");
+    }
+
+    private void testFailureSnapshotReadsCacheOnce() throws Exception {
+        String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DiscoveryService.java"));
+        int method = source.indexOf("private NodeSnapshot failureSnapshot");
+        int next = source.indexOf("private NodeSnapshot save", method);
+        String body = source.substring(method, next);
+        check(count(body, "cached.get()") == 1, "failure snapshot reads cached Optional once");
+    }
+
+    private int count(String source, String needle) {
+        int count = 0;
+        for (int index = source.indexOf(needle); index >= 0; index = source.indexOf(needle, index + needle.length())) count++;
+        return count;
     }
 }
