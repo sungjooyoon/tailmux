@@ -154,7 +154,7 @@ final class DoctorCommand {
         }
         if (hasDscacheutil) {
             ExecResult resolver = localProcess.capture("dscacheutil", "-q", "host", "-a", "name", host);
-            if (resolver.ok() && !resolver.stdout().isBlank()) {
+            if (resolver.ok() && Ascii.hasText(resolver.stdout())) {
                 lines.add("OK    " + node.id().value() + " macOS resolver resolved host");
             } else {
                 lines.add("WARN  " + node.id().value() + " macOS resolver did not resolve host");

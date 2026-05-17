@@ -7,6 +7,7 @@ import dev.tailmux.core.NodeStatus;
 import dev.tailmux.core.TmuxPane;
 import dev.tailmux.core.TmuxSession;
 import dev.tailmux.core.TmuxWindow;
+import dev.tailmux.text.Ascii;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -107,7 +108,7 @@ public final class Renderers {
     }
 
     private static String valueOrDash(String value) {
-        return value == null || value.isBlank() ? "-" : value;
+        return Ascii.hasText(value) ? value : "-";
     }
 
     public static String relative(Instant instant, Clock clock) {

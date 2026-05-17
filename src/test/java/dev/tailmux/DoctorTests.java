@@ -127,6 +127,7 @@ final class DoctorTests extends TestMain {
         int folds = count(source, "toLowerCase()");
         check(folds == 0, "doctor diagnostic classification avoids folded string allocation");
         check(!source.contains("stdout().toLowerCase()"), "doctor ping reachability avoids lowercasing command output");
+        check(!source.contains("stdout().isBlank()"), "doctor resolver output uses ascii text presence checks");
     }
 
     private void testDoctorChecksRemoteNodesConcurrently() throws Exception {

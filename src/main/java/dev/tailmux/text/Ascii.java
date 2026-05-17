@@ -35,6 +35,14 @@ public final class Ascii {
         return start == 0 ? value : value.substring(start);
     }
 
+    public static boolean hasText(String value) {
+        if (value == null) return false;
+        for (int i = 0; i < value.length(); i++) {
+            if (!whitespace(value.charAt(i))) return true;
+        }
+        return false;
+    }
+
     public static boolean whitespace(char c) {
         return c == ' ' || c == '\n' || c == '\r' || c == '\t';
     }

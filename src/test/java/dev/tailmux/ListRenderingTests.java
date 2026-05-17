@@ -103,6 +103,7 @@ final class ListRenderingTests extends TestMain {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/Renderers.java"));
         check(!source.contains("String.format"), "renderer avoids Formatter for fixed-width rows");
         check(!source.contains(".stream()"), "renderer avoids streams in row hot paths");
+        check(!source.contains(".isBlank("), "renderer uses ascii text presence checks");
     }
 
     private void testActivePaneCachesPaneList() throws Exception {
