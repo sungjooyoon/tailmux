@@ -63,6 +63,7 @@ final class CliWorkflowTests extends TestMain {
     private void testCommandFlagsAvoidRepeatedContainsScans() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/CommandRouter.java"));
         check(!source.contains(".contains(\"--"), "command flags avoid repeated contains scans");
+        check(!source.contains("ArrayList<String> args = new ArrayList<>()"), "start parser allocates argument copy only when flags are present");
     }
 
     private void testWorkspaceCreatesOnDefaultHome() throws Exception {

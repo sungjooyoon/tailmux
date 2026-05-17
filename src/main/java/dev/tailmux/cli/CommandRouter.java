@@ -84,7 +84,7 @@ public final class CommandRouter {
         if (!"start".equals(command)) {
             return new ParsedCommand(command, rest, Optional.empty());
         }
-        ArrayList<String> args = new ArrayList<>();
+        ArrayList<String> parsedArgs = null;
         Optional<String> home = Optional.empty();
         for (int i = 0; i < rest.size(); i++) {
             String arg = rest.get(i);
@@ -92,12 +92,13 @@ public final class CommandRouter {
                 if (i + 1 >= rest.size()) {
                     throw new IllegalArgumentException("--home requires a node");
                 }
+                if (parsedArgs == null) parsedArgs = new ArrayList<>(rest.subList(0, i));
                 home = Optional.of(rest.get(++i));
             } else {
-                args.add(arg);
+                if (parsedArgs != null) parsedArgs.add(arg);
             }
         }
-        return new ParsedCommand(command, args, home);
+        return new ParsedCommand(command, parsedArgs == null ? rest : parsedArgs, home);
     }
 
     private int usage() {
