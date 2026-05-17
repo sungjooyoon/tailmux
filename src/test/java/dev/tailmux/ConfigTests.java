@@ -17,6 +17,7 @@ final class ConfigTests extends TestMain {
         testNodeConfigsAreCached();
         testSshTargetsAreCached();
         testSshTargetBuildAvoidsOptionalMap();
+        testDefaultSocketListIsCanonical();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -69,5 +70,14 @@ final class ConfigTests extends TestMain {
     private void testSshTargetBuildAvoidsOptionalMap() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
         check(!source.contains("user.map("), "ssh target construction avoids Optional.map allocation");
+    }
+
+    private void testDefaultSocketListIsCanonical() throws Exception {
+        Properties p = new Properties();
+        p.setProperty("tailmux.home.pool", "office-a,office-b");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+
+        check(config.node(NodeId.parse("office-a")).sockets() == config.node(NodeId.parse("office-b")).sockets(), "default socket list is shared");
+        check(Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java")).contains("DEFAULT_SOCKETS"), "node config exposes canonical default sockets");
     }
 }

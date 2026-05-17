@@ -113,7 +113,7 @@ public final class TailmuxConfig {
 
     private static List<String> parseSockets(String raw) {
         List<String> parsed = parseCsv(raw);
-        return parsed.isEmpty() ? List.of("default") : parsed;
+        return parsed.isEmpty() ? NodeConfig.DEFAULT_SOCKETS : parsed;
     }
 
     private static List<String> parseCsv(String raw) {
