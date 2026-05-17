@@ -25,6 +25,7 @@ final class CliWorkflowTests extends TestMain {
     void run() throws Exception {
         testCommandRouting();
         testCommandRoutingAvoidsBuiltinList();
+        testParsedCommandAvoidsDefensiveArgCopy();
         testCommandFlagsAvoidRepeatedContainsScans();
         testWorkspaceCreatesOnDefaultHome();
         testWorkspaceSelectionAvoidsTransientMatchLists();
@@ -59,6 +60,11 @@ final class CliWorkflowTests extends TestMain {
     private void testCommandRoutingAvoidsBuiltinList() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/CommandRouter.java"));
         check(!source.contains("BUILTINS") && !source.contains(".contains(first)"), "command routing avoids builtin list scan");
+    }
+
+    private void testParsedCommandAvoidsDefensiveArgCopy() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/ParsedCommand.java"));
+        check(!source.contains("List.copyOf(args)"), "parsed command avoids copying owned routing args");
     }
 
     private void testCommandFlagsAvoidRepeatedContainsScans() throws Exception {

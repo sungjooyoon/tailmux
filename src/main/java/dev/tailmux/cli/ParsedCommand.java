@@ -5,8 +5,7 @@ import java.util.Optional;
 
 public record ParsedCommand(String command, List<String> args, Optional<String> home) {
     public ParsedCommand {
-        args = List.copyOf(args);
+        args = args == null ? List.of() : args;
         home = home == null ? Optional.empty() : home;
     }
 }
-
