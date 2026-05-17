@@ -12,8 +12,6 @@ import dev.tailmux.text.Ascii;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.NoSuchElementException;
 
 public final class TmuxParser {
@@ -27,7 +25,7 @@ public final class TmuxParser {
     }
 
     public static NodeSnapshot parse(NodeId node, String socket, String sessionsOutput, String windowsOutput, String panesOutput, Instant seenAt) {
-        Map<String, MutableSession> sessions = new LinkedHashMap<>();
+        ArrayList<MutableSession> sessions = new ArrayList<>();
         boolean hasFullPaneRows = Ascii.hasText(panesOutput);
         for (Row row : rows(sessionsOutput)) {
             String name = required(row, "session");
@@ -35,7 +33,7 @@ public final class TmuxParser {
             String attached = required(row, "session");
             String created = required(row, "session");
             String activity = required(row, "session");
-            sessions.put(name, new MutableSession(
+            sessions.add(new MutableSession(
                     socket,
                     name,
                     id,
@@ -52,7 +50,7 @@ public final class TmuxParser {
             String id = required(row, "window");
             String name = required(row, "window");
             boolean active = "1".equals(required(row, "window"));
-            MutableSession session = sessions.get(sessionName);
+            MutableSession session = session(sessions, sessionName);
             // tmux can report rows from stale/racing state; keep discovery useful by ignoring rows whose parent is absent.
             if (session != null) {
                 MutableWindow window = new MutableWindow(index, id, name, active);
@@ -71,7 +69,7 @@ public final class TmuxParser {
             String cwd = required(row, "pane");
             String command = required(row, "pane");
             boolean active = "1".equals(required(row, "pane"));
-            MutableSession session = sessions.get(sessionName);
+            MutableSession session = session(sessions, sessionName);
             MutableWindow window = session == null ? null : session.window(windowIndex);
             // Same rule as windows: orphan pane rows are ignored, not promoted into phantom sessions.
             if (window != null) {
@@ -80,8 +78,15 @@ public final class TmuxParser {
         }
 
         ArrayList<TmuxSession> parsed = new ArrayList<>(sessions.size());
-        for (MutableSession session : sessions.values()) parsed.add(session.toSession());
+        for (MutableSession session : sessions) parsed.add(session.toSession());
         return new NodeSnapshot(node, NodeStatus.ONLINE, seenAt, parsed);
+    }
+
+    private static MutableSession session(ArrayList<MutableSession> sessions, String name) {
+        for (MutableSession session : sessions) {
+            if (session.name.equals(name)) return session;
+        }
+        return null;
     }
 
     public static DiscoveryOutput splitDiscoveryOutput(String output) {
