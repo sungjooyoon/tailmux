@@ -1,6 +1,7 @@
 package dev.tailmux.config;
 
 import dev.tailmux.core.NodeId;
+import dev.tailmux.text.Ascii;
 
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +10,8 @@ public record NodeConfig(NodeId id, String host, Optional<String> user, List<Str
     static final List<String> DEFAULT_SOCKETS = List.of("default");
 
     public NodeConfig {
-        if (host == null || host.isBlank()) {
+        host = Ascii.trim(host);
+        if (host.isEmpty()) {
             throw new IllegalArgumentException("host is required for node " + id);
         }
         user = user == null ? Optional.empty() : user;

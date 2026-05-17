@@ -18,6 +18,7 @@ final class ConfigTests extends TestMain {
         testSshTargetsAreCached();
         testSshTargetBuildAvoidsOptionalMap();
         testDefaultSocketListIsCanonical();
+        testConfigParsingUsesAsciiScanners();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -79,5 +80,13 @@ final class ConfigTests extends TestMain {
 
         check(config.node(NodeId.parse("office-a")).sockets() == config.node(NodeId.parse("office-b")).sockets(), "default socket list is shared");
         check(Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java")).contains("DEFAULT_SOCKETS"), "node config exposes canonical default sockets");
+    }
+
+    private void testConfigParsingUsesAsciiScanners() throws Exception {
+        String config = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        String node = Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java"));
+        check(!config.contains("StringTokenizer"), "config csv parsing avoids tokenizer allocation");
+        check(!config.contains(".trim()"), "config parsing uses ascii trim helpers");
+        check(!node.contains(".isBlank("), "node config uses ascii text checks");
     }
 }

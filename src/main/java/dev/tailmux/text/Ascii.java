@@ -14,11 +14,16 @@ public final class Ascii {
 
     public static String trim(String value) {
         if (value == null || value.isEmpty()) return "";
-        int start = 0;
-        int end = value.length();
-        while (start < end && whitespace(value.charAt(start))) start++;
-        while (end > start && whitespace(value.charAt(end - 1))) end--;
-        return start == 0 && end == value.length() ? value : value.substring(start, end);
+        return trim(value, 0, value.length());
+    }
+
+    public static String trim(String value, int start, int end) {
+        if (value == null || start >= end) return "";
+        int from = start;
+        int to = end;
+        while (from < to && whitespace(value.charAt(from))) from++;
+        while (to > from && whitespace(value.charAt(to - 1))) to--;
+        return from == 0 && to == value.length() ? value : value.substring(from, to);
     }
 
     public static String trimRight(String value) {

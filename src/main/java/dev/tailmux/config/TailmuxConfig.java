@@ -3,6 +3,7 @@ package dev.tailmux.config;
 import dev.tailmux.cli.ExitCodes;
 import dev.tailmux.core.NodeId;
 import dev.tailmux.core.TailmuxException;
+import dev.tailmux.text.Ascii;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.StringTokenizer;
 
 public final class TailmuxConfig {
     private final Optional<String> user;
@@ -58,7 +58,7 @@ public final class TailmuxConfig {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: tailmux.home.pool is required");
         }
 
-        NodeId defaultHome = NodeId.parse(properties.getProperty("tailmux.home.default", pool.getFirst().value()).trim());
+        NodeId defaultHome = NodeId.parse(properties.getProperty("tailmux.home.default", pool.getFirst().value()));
         if (!pool.contains(defaultHome)) {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: tailmux.home.default must be in tailmux.home.pool");
         }
@@ -66,7 +66,7 @@ public final class TailmuxConfig {
         Map<NodeId, NodeConfig> nodes = new LinkedHashMap<>();
         for (NodeId id : pool) {
             String prefix = "tailmux.node." + id.value() + ".";
-            String host = properties.getProperty(prefix + "host", id.value()).trim();
+            String host = properties.getProperty(prefix + "host", id.value());
             nodes.put(id, new NodeConfig(id, host, optional(properties.getProperty(prefix + "user", "")), parseSockets(properties.getProperty(prefix + "sockets", ""))));
         }
 
@@ -118,16 +118,18 @@ public final class TailmuxConfig {
 
     private static List<String> parseCsv(String raw) {
         ArrayList<String> values = new ArrayList<>();
-        StringTokenizer tokens = new StringTokenizer(raw, ",");
-        while (tokens.hasMoreTokens()) {
-            String value = tokens.nextToken().trim();
+        int start = 0;
+        for (int i = 0; i <= raw.length(); i++) {
+            if (i < raw.length() && raw.charAt(i) != ',') continue;
+            String value = Ascii.trim(raw, start, i);
             if (!value.isEmpty()) values.add(value);
+            start = i + 1;
         }
         return values;
     }
 
     private static Optional<String> optional(String raw) {
-        String trimmed = raw.trim();
+        String trimmed = Ascii.trim(raw);
         return trimmed.isEmpty() ? Optional.empty() : Optional.of(trimmed);
     }
 }
