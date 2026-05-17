@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Properties;
 
 public final class TailmuxConfig {
@@ -51,13 +50,13 @@ public final class TailmuxConfig {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: tailmux.home.default must be in tailmux.home.pool");
         }
 
-        Optional<String> globalUser = optional(properties.getProperty("tailmux.user", ""));
+        String globalUser = value(properties.getProperty("tailmux.user", ""));
         ArrayList<NodeConfig> nodes = new ArrayList<>(pool.size());
         for (NodeId id : pool) {
             String prefix = "tailmux.node." + id.value() + ".";
             String host = properties.getProperty(prefix + "host", id.value());
-            Optional<String> nodeUser = optional(properties.getProperty(prefix + "user", ""));
-            nodes.add(new NodeConfig(id, host, nodeUser, parseSockets(properties.getProperty(prefix + "sockets", "")), buildSshTarget(globalUser, nodeUser, host)));
+            String nodeUser = value(properties.getProperty(prefix + "user", ""));
+            nodes.add(new NodeConfig(id, host, parseSockets(properties.getProperty(prefix + "sockets", "")), buildSshTarget(globalUser, nodeUser, host)));
         }
 
         return new TailmuxConfig(defaultHome, pool, nodes);
@@ -86,9 +85,9 @@ public final class TailmuxConfig {
         return node.sshTarget();
     }
 
-    private static String buildSshTarget(Optional<String> globalUser, Optional<String> nodeUser, String host) {
-        if (nodeUser.isPresent()) return nodeUser.get() + "@" + Ascii.trim(host);
-        if (globalUser.isPresent()) return globalUser.get() + "@" + Ascii.trim(host);
+    private static String buildSshTarget(String globalUser, String nodeUser, String host) {
+        if (!nodeUser.isEmpty()) return nodeUser + "@" + Ascii.trim(host);
+        if (!globalUser.isEmpty()) return globalUser + "@" + Ascii.trim(host);
         return host;
     }
 
@@ -121,8 +120,7 @@ public final class TailmuxConfig {
         return values;
     }
 
-    private static Optional<String> optional(String raw) {
-        String trimmed = Ascii.trim(raw);
-        return trimmed.isEmpty() ? Optional.empty() : Optional.of(trimmed);
+    private static String value(String raw) {
+        return Ascii.trim(raw);
     }
 }

@@ -21,6 +21,7 @@ final class ConfigTests extends TestMain {
         testConfigParsingUsesAsciiScanners();
         testConfigKeepsOneOrderedNodeIndex();
         testHomePoolParsingAvoidsStringListHop();
+        testConfigDoesNotStoreUnusedUserOptionals();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -100,5 +101,11 @@ final class ConfigTests extends TestMain {
     private void testHomePoolParsingAvoidsStringListHop() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
         check(!source.contains("List<String> values = parseCsv(raw)"), "home pool parser avoids intermediate string list");
+    }
+
+    private void testConfigDoesNotStoreUnusedUserOptionals() throws Exception {
+        String config = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        String node = Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java"));
+        check(!config.contains("Optional<String>") && !node.contains("Optional<String>"), "config does not allocate unused user optionals");
     }
 }
