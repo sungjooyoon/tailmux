@@ -32,6 +32,7 @@ final class DiscoveryTests extends TestMain {
         testDiscoveryDoesNotCopyInternalResults();
         testDiscoveryFallbackAvoidsOptionalPipelines();
         testFailureSnapshotReadsCacheOnce();
+        testDiscoveryInternalCacheIsNullable();
     }
 
     private void testOfflineCachedRendering() throws Exception {
@@ -186,7 +187,12 @@ final class DiscoveryTests extends TestMain {
         int method = source.indexOf("private NodeSnapshot failureSnapshot");
         int next = source.indexOf("private NodeSnapshot save", method);
         String body = source.substring(method, next);
-        check(count(body, "cached.get()") == 1, "failure snapshot reads cached Optional once");
+        check(count(body, "cached.sessions()") == 1, "failure snapshot reads nullable cache once");
+    }
+
+    private void testDiscoveryInternalCacheIsNullable() throws Exception {
+        String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DiscoveryService.java"));
+        check(!source.contains("Optional<NodeSnapshot>") && !source.contains("cached.get()") && !source.contains("cached.isPresent()"), "discovery unwraps cached optional at boundary");
     }
 
     private int count(String source, String needle) {

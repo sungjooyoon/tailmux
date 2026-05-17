@@ -18,7 +18,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -78,17 +77,17 @@ final class DiscoveryService {
     }
 
     private NodeSnapshot discoverOrCached(NodeConfig node, boolean includeWindows, boolean includePanes) {
-        Optional<NodeSnapshot> cached = store.loadSnapshot(node.id());
-        if (recentOffline(cached)) return cached.get().withStatus(NodeStatus.OFFLINE);
+        NodeSnapshot cached = store.loadSnapshot(node.id()).orElse(null);
+        if (recentOffline(cached)) return cached.withStatus(NodeStatus.OFFLINE);
         NodeSnapshot snapshot = discover(node, includeWindows, includePanes, cached);
         if (snapshot.status() == NodeStatus.ONLINE || snapshot.status() == NodeStatus.NO_TMUX) {
             return snapshot;
         }
-        if (cached.isPresent()) return cached.get().withStatus(NodeStatus.OFFLINE);
+        if (cached != null) return cached.withStatus(NodeStatus.OFFLINE);
         return snapshot.withStatus(NodeStatus.OFFLINE);
     }
 
-    private NodeSnapshot discover(NodeConfig node, boolean includeWindows, boolean includePanes, Optional<NodeSnapshot> cached) {
+    private NodeSnapshot discover(NodeConfig node, boolean includeWindows, boolean includePanes, NodeSnapshot cached) {
         Instant now = clock.instant();
         try {
             ArrayList<TmuxSession> sessions = new ArrayList<>();
@@ -126,11 +125,8 @@ final class DiscoveryService {
         return includeWindows ? TmuxCommands.discoverWindows(socket) : TmuxCommands.listSessions(socket);
     }
 
-    private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now, Optional<NodeSnapshot> cached) {
-        if (cached.isPresent()) {
-            NodeSnapshot snapshot = cached.get();
-            if (!snapshot.sessions().isEmpty()) return snapshot.withStatus(NodeStatus.OFFLINE);
-        }
+    private NodeSnapshot failureSnapshot(NodeConfig node, NodeStatus status, Instant now, NodeSnapshot cached) {
+        if (cached != null && !cached.sessions().isEmpty()) return cached.withStatus(NodeStatus.OFFLINE);
         return save(new NodeSnapshot(node.id(), status, now, List.of()));
     }
 
@@ -139,11 +135,10 @@ final class DiscoveryService {
         return snapshot;
     }
 
-    private boolean recentOffline(Optional<NodeSnapshot> cached) {
-        if (cached.isEmpty()) return false;
-        NodeSnapshot snapshot = cached.get();
-        if (snapshot.status() != NodeStatus.SSH_FAILED && snapshot.status() != NodeStatus.OFFLINE) return false;
-        Duration age = Duration.between(snapshot.lastSeenAt(), clock.instant());
+    private boolean recentOffline(NodeSnapshot cached) {
+        if (cached == null) return false;
+        if (cached.status() != NodeStatus.SSH_FAILED && cached.status() != NodeStatus.OFFLINE) return false;
+        Duration age = Duration.between(cached.lastSeenAt(), clock.instant());
         return !age.isNegative() && age.compareTo(RECENT_OFFLINE_TTL) <= 0;
     }
 }
