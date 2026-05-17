@@ -31,47 +31,55 @@ public final class TmuxParser {
         Map<String, MutableWindow> windows = new LinkedHashMap<>();
         boolean hasFullPaneRows = panesOutput != null && !panesOutput.isBlank();
         for (String line : lines(sessionsOutput)) {
-            String[] parts = fields(line);
-            if (parts.length < 5) {
-                throw new IllegalArgumentException("invalid tmux session row: " + printable(line));
-            }
-            sessions.put(parts[0], new MutableSession(
+            Row row = new Row(line);
+            String name = required(row, line, "session");
+            String id = required(row, line, "session");
+            String attached = required(row, line, "session");
+            String created = required(row, line, "session");
+            String activity = required(row, line, "session");
+            sessions.put(name, new MutableSession(
                     socket,
-                    parts[0],
-                    parts[1],
-                    "1".equals(parts[2]),
-                    parseLong(parts[3]),
-                    parseLong(parts[4]),
-                    parts.length >= 6 ? parseInt(parts[5]) : 0
+                    name,
+                    id,
+                    "1".equals(attached),
+                    parseLong(created),
+                    parseLong(activity),
+                    row.hasNext() ? parseInt(row.next()) : 0
             ));
         }
 
         for (String line : lines(windowsOutput)) {
-            String[] parts = fields(line);
-            if (parts.length < 5) {
-                throw new IllegalArgumentException("invalid tmux window row: " + printable(line));
-            }
-            MutableSession session = sessions.get(parts[0]);
+            Row row = new Row(line);
+            String sessionName = required(row, line, "window");
+            int index = parseInt(required(row, line, "window"));
+            String id = required(row, line, "window");
+            String name = required(row, line, "window");
+            boolean active = "1".equals(required(row, line, "window"));
+            MutableSession session = sessions.get(sessionName);
             // tmux can report rows from stale/racing state; keep discovery useful by ignoring rows whose parent is absent.
             if (session != null) {
-                MutableWindow window = new MutableWindow(parseInt(parts[1]), parts[2], parts[3], "1".equals(parts[4]));
-                if (!hasFullPaneRows && parts.length >= 9) {
-                    window.panes.add(new TmuxPane(parseInt(parts[5]), parts[6], parts[7], parts[8], true));
+                MutableWindow window = new MutableWindow(index, id, name, active);
+                if (!hasFullPaneRows && row.hasFields(4)) {
+                    window.panes.add(new TmuxPane(parseInt(row.next()), row.next(), row.next(), row.next(), true));
                 }
                 session.windows.add(window);
-                windows.put(windowKey(parts[0], window.index), window);
+                windows.put(windowKey(sessionName, window.index), window);
             }
         }
 
         for (String line : lines(panesOutput)) {
-            String[] parts = fields(line);
-            if (parts.length < 7) {
-                throw new IllegalArgumentException("invalid tmux pane row: " + printable(line));
-            }
-            MutableWindow window = windows.get(windowKey(parts[0], parseInt(parts[1])));
+            Row row = new Row(line);
+            String sessionName = required(row, line, "pane");
+            int windowIndex = parseInt(required(row, line, "pane"));
+            int paneIndex = parseInt(required(row, line, "pane"));
+            String id = required(row, line, "pane");
+            String cwd = required(row, line, "pane");
+            String command = required(row, line, "pane");
+            boolean active = "1".equals(required(row, line, "pane"));
+            MutableWindow window = windows.get(windowKey(sessionName, windowIndex));
             // Same rule as windows: orphan pane rows are ignored, not promoted into phantom sessions.
             if (window != null) {
-                window.panes.add(new TmuxPane(parseInt(parts[2]), parts[3], parts[4], parts[5], "1".equals(parts[6])));
+                window.panes.add(new TmuxPane(paneIndex, id, cwd, command, active));
             }
         }
 
@@ -142,22 +150,11 @@ public final class TmuxParser {
         };
     }
 
-    private static String[] fields(String line) {
-        int count = 1;
-        for (int i = 0; i < line.length(); i++) {
-            if (line.charAt(i) == SEP_CHAR) count++;
+    private static String required(Row row, String line, String type) {
+        if (!row.hasNext()) {
+            throw new IllegalArgumentException("invalid tmux " + type + " row: " + printable(line));
         }
-        String[] parts = new String[count];
-        int field = 0;
-        int start = 0;
-        for (int i = 0; i < line.length(); i++) {
-            if (line.charAt(i) == SEP_CHAR) {
-                parts[field++] = line.substring(start, i);
-                start = i + 1;
-            }
-        }
-        parts[field] = line.substring(start);
-        return parts;
+        return row.next();
     }
 
     private static long parseLong(String value) {
@@ -182,6 +179,42 @@ public final class TmuxParser {
 
     private static String windowKey(String session, int index) {
         return session + SEP + index;
+    }
+
+    private static final class Row {
+        private final String line;
+        private int start;
+        private boolean available = true;
+
+        private Row(String line) {
+            this.line = line;
+        }
+
+        private boolean hasNext() {
+            return available;
+        }
+
+        private boolean hasFields(int fields) {
+            if (!available) return false;
+            int index = start;
+            for (int seen = 1; seen < fields; seen++) {
+                index = line.indexOf(SEP_CHAR, index);
+                if (index < 0) return false;
+                index++;
+            }
+            return true;
+        }
+
+        private String next() {
+            int sep = line.indexOf(SEP_CHAR, start);
+            if (sep < 0) {
+                available = false;
+                return line.substring(start);
+            }
+            String value = line.substring(start, sep);
+            start = sep + 1;
+            return value;
+        }
     }
 
     private static final class MutableWindow {
