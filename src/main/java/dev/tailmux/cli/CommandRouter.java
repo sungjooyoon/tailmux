@@ -15,8 +15,6 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class CommandRouter {
-    private static final List<String> BUILTINS = List.of("doctor", "nodes", "ls", "attach", "start", "help");
-
     private final TailmuxConfig config;
     private final PropertiesStateStore store;
     private final RemoteExecutor remote;
@@ -46,10 +44,10 @@ public final class CommandRouter {
             return new ParsedCommand("help", List.of(), Optional.empty());
         }
         String first = args.getFirst();
-        if (BUILTINS.contains(first)) {
-            return parseBuiltin(first, args.subList(1, args.size()));
-        }
-        return new ParsedCommand("workspace", List.of(first), Optional.empty());
+        return switch (first) {
+            case "doctor", "nodes", "ls", "attach", "start", "help" -> parseBuiltin(first, args.subList(1, args.size()));
+            default -> new ParsedCommand("workspace", List.of(first), Optional.empty());
+        };
     }
 
     public int run(List<String> args) {
