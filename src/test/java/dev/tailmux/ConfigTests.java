@@ -22,6 +22,7 @@ final class ConfigTests extends TestMain {
         testConfigKeepsOneOrderedNodeIndex();
         testHomePoolParsingAvoidsStringListHop();
         testConfigDoesNotStoreUnusedUserOptionals();
+        testDefaultSocketsShortCircuitCsvParsing();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -107,5 +108,10 @@ final class ConfigTests extends TestMain {
         String config = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
         String node = Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java"));
         check(!config.contains("Optional<String>") && !node.contains("Optional<String>"), "config does not allocate unused user optionals");
+    }
+
+    private void testDefaultSocketsShortCircuitCsvParsing() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        check(source.contains("if (!Ascii.hasText(raw)) return NodeConfig.DEFAULT_SOCKETS;"), "default socket config avoids csv parser allocation");
     }
 }
