@@ -49,7 +49,8 @@ final class WorkspaceService {
     }
 
     int startCommand(List<String> args, Optional<String> home) throws IOException, InterruptedException {
-        return smartWorkspace(WorkspaceName.parse(firstArg(args, "start: workspace name")), home.map(NodeId::parse));
+        Optional<NodeId> parsedHome = home.isPresent() ? Optional.of(NodeId.parse(home.get())) : Optional.empty();
+        return smartWorkspace(WorkspaceName.parse(firstArg(args, "start: workspace name")), parsedHome);
     }
 
     int smartWorkspace(WorkspaceName workspaceName, Optional<NodeId> explicitHome) throws IOException, InterruptedException {
@@ -67,7 +68,7 @@ final class WorkspaceService {
         int offlineMatchCount = 0;
         NodeConfig firstHealthy = null;
         NodeConfig defaultHealthy = null;
-        NodeConfig explicitHealthy = explicitHome.map(config::node).orElse(null);
+        NodeConfig explicitHealthy = explicitHome.isPresent() ? config.node(explicitHome.get()) : null;
         boolean explicitHomeHealthy = false;
         for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), false)) {
             NodeSnapshot snapshot = discovered.snapshot();

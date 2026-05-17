@@ -28,6 +28,7 @@ final class CliWorkflowTests extends TestMain {
         testCommandFlagsAvoidRepeatedContainsScans();
         testWorkspaceCreatesOnDefaultHome();
         testWorkspaceSelectionAvoidsTransientMatchLists();
+        testWorkspaceSelectionAvoidsOptionalPipelines();
         testWorkspaceDiscoverySkipsWindowAndPaneMetadata();
         testRegistryOwnerUnreachableDoesNotCreateDuplicate();
         testCachedOfflineWorkspaceDoesNotCreateDuplicate();
@@ -85,6 +86,11 @@ final class CliWorkflowTests extends TestMain {
     private void testWorkspaceSelectionAvoidsTransientMatchLists() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
         check(!source.contains("ArrayList<NodeSession>") && !source.contains("ArrayList<NodeConfig> healthy"), "workspace selection avoids transient match/home lists");
+    }
+
+    private void testWorkspaceSelectionAvoidsOptionalPipelines() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
+        check(!source.contains(".map(") && !source.contains(".orElse("), "workspace selection uses explicit Optional branches");
     }
 
     private void testWorkspaceDiscoverySkipsWindowAndPaneMetadata() throws Exception {
