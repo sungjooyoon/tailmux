@@ -88,15 +88,15 @@ public final class TmuxParser {
         if (output == null || output.isEmpty()) return new DiscoveryOutput("", "", "");
         int marker = output.indexOf(TmuxCommands.DISCOVERY_WINDOWS_MARKER);
         if (marker < 0) return new DiscoveryOutput(output, "", "");
-        String sessions = output.substring(0, marker);
-        String rest = output.substring(marker + TmuxCommands.DISCOVERY_WINDOWS_MARKER.length());
-        int paneMarker = rest.indexOf(TmuxCommands.DISCOVERY_PANES_MARKER);
+        int windowsStart = marker + TmuxCommands.DISCOVERY_WINDOWS_MARKER.length();
+        int paneMarker = output.indexOf(TmuxCommands.DISCOVERY_PANES_MARKER, windowsStart);
         if (paneMarker < 0) {
-            return new DiscoveryOutput(Ascii.trimRight(sessions), Ascii.trimLeft(rest), "");
+            return new DiscoveryOutput(Ascii.trimRight(output, 0, marker), Ascii.trimLeft(output, windowsStart, output.length()), "");
         }
-        String windows = rest.substring(0, paneMarker);
-        String panes = rest.substring(paneMarker + TmuxCommands.DISCOVERY_PANES_MARKER.length());
-        return new DiscoveryOutput(Ascii.trimRight(sessions), Ascii.trim(windows), Ascii.trimLeft(panes));
+        return new DiscoveryOutput(
+                Ascii.trimRight(output, 0, marker),
+                Ascii.trim(output, windowsStart, paneMarker),
+                Ascii.trimLeft(output, paneMarker + TmuxCommands.DISCOVERY_PANES_MARKER.length(), output.length()));
     }
 
     public static boolean isNoServer(ExecResult result) {

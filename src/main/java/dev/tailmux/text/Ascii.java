@@ -28,16 +28,26 @@ public final class Ascii {
 
     public static String trimRight(String value) {
         if (value == null || value.isEmpty()) return "";
-        int end = value.length();
-        while (end > 0 && whitespace(value.charAt(end - 1))) end--;
-        return end == value.length() ? value : value.substring(0, end);
+        return trimRight(value, 0, value.length());
+    }
+
+    public static String trimRight(String value, int start, int end) {
+        if (value == null || start >= end) return "";
+        int to = end;
+        while (to > start && whitespace(value.charAt(to - 1))) to--;
+        return start == 0 && to == value.length() ? value : value.substring(start, to);
     }
 
     public static String trimLeft(String value) {
         if (value == null || value.isEmpty()) return "";
-        int start = 0;
-        while (start < value.length() && whitespace(value.charAt(start))) start++;
-        return start == 0 ? value : value.substring(start);
+        return trimLeft(value, 0, value.length());
+    }
+
+    public static String trimLeft(String value, int start, int end) {
+        if (value == null || start >= end) return "";
+        int from = start;
+        while (from < end && whitespace(value.charAt(from))) from++;
+        return from == 0 && end == value.length() ? value : value.substring(from, end);
     }
 
     public static boolean hasText(String value) {

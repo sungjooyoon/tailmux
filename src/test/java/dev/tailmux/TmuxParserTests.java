@@ -151,6 +151,9 @@ final class TmuxParserTests {
         tests.check(!source.contains("output.substring(start, end)"), "tmux parser avoids line substring allocation");
         tests.check(!source.contains("windowKey("), "tmux parser links panes without synthetic string keys");
         tests.check(!source.contains("Map<String, MutableWindow>"), "tmux parser avoids a second window lookup map");
+        tests.check(!source.contains("String rest = output.substring"), "tmux discovery split avoids rest substring allocation");
+        tests.check(!source.contains("String sessions = output.substring"), "tmux discovery split trims sessions by range");
+        tests.check(!source.contains("String windows = rest.substring"), "tmux discovery split trims windows by range");
     }
 
     private static String fixture(String name) throws Exception {
