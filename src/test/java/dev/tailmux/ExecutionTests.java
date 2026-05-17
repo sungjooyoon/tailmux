@@ -19,6 +19,7 @@ final class ExecutionTests extends TestMain {
         testLocalProcessDefaultTimeoutFailsFast();
         testLocalProcessLargeOutputDoesNotDeadlock();
         testTailscaleSshExecutorUsesTailscaleSshOnly();
+        testExecResultUsesAsciiTrim();
         testProcessCallersAvoidListWrappers();
         testProductCodeDoesNotInvokePlainSsh();
     }
@@ -63,6 +64,13 @@ final class ExecutionTests extends TestMain {
                 List.of("tailscale", "ssh", "sungjooyoon@office-a", "echo ok"),
                 List.of("tailscale", "ssh", "sungjooyoon@office-a", "tmux attach")
         )), "remote executor uses tailscale ssh for execute and attach");
+    }
+
+    private void testExecResultUsesAsciiTrim() throws Exception {
+        check(ExecResult.failure(1, " out \n", " \t\r\n").errorText().equals("out"), "error text falls back to trimmed stdout");
+        check(ExecResult.failure(1, "", " err \n").errorText().equals("err"), "error text trims stderr");
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/exec/ExecResult.java"));
+        check(!source.contains(".strip(") && !source.contains(".isBlank("), "exec result avoids unicode strip/isBlank scans");
     }
 
     private void testProcessCallersAvoidListWrappers() throws Exception {
