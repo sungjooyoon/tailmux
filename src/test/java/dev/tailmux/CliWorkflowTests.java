@@ -39,6 +39,7 @@ final class CliWorkflowTests extends TestMain {
         testAttachSelectorSingleSocketUsesHasSession();
         testAttachSelectorFindsNonDefaultSocket();
         testAttachSelectorRejectsAmbiguousSocket();
+        testAttachSocketResolutionAvoidsMatchList();
         testWorkspaceAttachWritesEventMetadata();
         testAttachPaneSelectsWindowAndPane();
         testAttachFailureSuggestsConfiguredSshTarget();
@@ -256,6 +257,11 @@ final class CliWorkflowTests extends TestMain {
         check(exit == ExitCodes.CONFIG_ERROR, "attach selector rejects ambiguous socket");
         check(console.err().contains("exists on multiple sockets"), "attach selector explains socket ambiguity");
         check(remote.interactiveCommands().isEmpty(), "attach selector does not attach ambiguous session");
+    }
+
+    private void testAttachSocketResolutionAvoidsMatchList() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
+        check(!source.contains("ArrayList<String> matches"), "attach socket resolution tracks scalar match state");
     }
 
     private void testWorkspaceAttachWritesEventMetadata() throws Exception {

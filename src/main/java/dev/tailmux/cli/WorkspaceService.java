@@ -180,11 +180,16 @@ final class WorkspaceService {
             throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": tmux session not found on configured sockets: " + session);
         }
 
-        ArrayList<String> matches = new ArrayList<>();
+        String match = null;
+        int matches = 0;
         for (String socket : node.sockets()) {
             ExecResult result = remote.execute(node, TmuxCommands.hasSession(socket, session));
             if (result.ok()) {
-                matches.add(socket);
+                matches++;
+                if (matches > 1) {
+                    throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL " + node.id().value() + ": session " + session + " exists on multiple sockets; use a Tailmux workspace or remove the ambiguity");
+                }
+                match = socket;
             } else {
                 TmuxFailure.Kind failure = TmuxFailure.classify(result);
                 if (failure == TmuxFailure.Kind.REMOTE_EXECUTION || failure == TmuxFailure.Kind.MISSING_BINARY) {
@@ -192,13 +197,10 @@ final class WorkspaceService {
                 }
             }
         }
-        if (matches.isEmpty()) {
+        if (matches == 0) {
             throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": tmux session not found on configured sockets: " + session);
         }
-        if (matches.size() > 1) {
-            throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL " + node.id().value() + ": session " + session + " exists on multiple sockets; use a Tailmux workspace or remove the ambiguity");
-        }
-        return matches.getFirst();
+        return match;
     }
 
     private TailmuxException classifyTmuxCommandFailure(NodeConfig node, String action, ExecResult result) {
