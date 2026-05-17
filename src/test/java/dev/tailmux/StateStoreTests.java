@@ -25,6 +25,7 @@ final class StateStoreTests extends TestMain {
         testEventLogRedactsUnapprovedFields();
         testStateWritersAvoidStreamCollectors();
         testAtomicPropertyEscapeIsSinglePass();
+        testSnapshotLoadListsUseStoredCounts();
     }
 
     private void testStateRoundTrip() throws Exception {
@@ -152,6 +153,13 @@ final class StateStoreTests extends TestMain {
     private void testAtomicPropertyEscapeIsSinglePass() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/AtomicFiles.java"));
         check(!source.contains(".replace("), "atomic property escaping avoids replace chains");
+    }
+
+    private void testSnapshotLoadListsUseStoredCounts() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(source.contains("new ArrayList<>(sessionCount)"), "snapshot load pre-sizes sessions");
+        check(source.contains("new ArrayList<>(windowCount)"), "snapshot load pre-sizes windows");
+        check(source.contains("new ArrayList<>(paneCount)"), "snapshot load pre-sizes panes");
     }
 
     private TailmuxException expectTailmuxException(ThrowingRunnable runnable) {
