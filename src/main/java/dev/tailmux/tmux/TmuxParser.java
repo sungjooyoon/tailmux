@@ -30,13 +30,12 @@ public final class TmuxParser {
         Map<String, MutableSession> sessions = new LinkedHashMap<>();
         Map<String, MutableWindow> windows = new LinkedHashMap<>();
         boolean hasFullPaneRows = panesOutput != null && !panesOutput.isBlank();
-        for (String line : lines(sessionsOutput)) {
-            Row row = new Row(line);
-            String name = required(row, line, "session");
-            String id = required(row, line, "session");
-            String attached = required(row, line, "session");
-            String created = required(row, line, "session");
-            String activity = required(row, line, "session");
+        for (Row row : rows(sessionsOutput)) {
+            String name = required(row, "session");
+            String id = required(row, "session");
+            String attached = required(row, "session");
+            String created = required(row, "session");
+            String activity = required(row, "session");
             sessions.put(name, new MutableSession(
                     socket,
                     name,
@@ -48,13 +47,12 @@ public final class TmuxParser {
             ));
         }
 
-        for (String line : lines(windowsOutput)) {
-            Row row = new Row(line);
-            String sessionName = required(row, line, "window");
-            int index = parseInt(required(row, line, "window"));
-            String id = required(row, line, "window");
-            String name = required(row, line, "window");
-            boolean active = "1".equals(required(row, line, "window"));
+        for (Row row : rows(windowsOutput)) {
+            String sessionName = required(row, "window");
+            int index = parseInt(required(row, "window"));
+            String id = required(row, "window");
+            String name = required(row, "window");
+            boolean active = "1".equals(required(row, "window"));
             MutableSession session = sessions.get(sessionName);
             // tmux can report rows from stale/racing state; keep discovery useful by ignoring rows whose parent is absent.
             if (session != null) {
@@ -67,15 +65,14 @@ public final class TmuxParser {
             }
         }
 
-        for (String line : lines(panesOutput)) {
-            Row row = new Row(line);
-            String sessionName = required(row, line, "pane");
-            int windowIndex = parseInt(required(row, line, "pane"));
-            int paneIndex = parseInt(required(row, line, "pane"));
-            String id = required(row, line, "pane");
-            String cwd = required(row, line, "pane");
-            String command = required(row, line, "pane");
-            boolean active = "1".equals(required(row, line, "pane"));
+        for (Row row : rows(panesOutput)) {
+            String sessionName = required(row, "pane");
+            int windowIndex = parseInt(required(row, "pane"));
+            int paneIndex = parseInt(required(row, "pane"));
+            String id = required(row, "pane");
+            String cwd = required(row, "pane");
+            String command = required(row, "pane");
+            boolean active = "1".equals(required(row, "pane"));
             MutableWindow window = windows.get(windowKey(sessionName, windowIndex));
             // Same rule as windows: orphan pane rows are ignored, not promoted into phantom sessions.
             if (window != null) {
@@ -107,11 +104,11 @@ public final class TmuxParser {
         return TmuxFailure.noServer(result);
     }
 
-    private static Iterable<String> lines(String output) {
+    private static Iterable<Row> rows(String output) {
         if (output == null || output.isEmpty()) return () -> java.util.Collections.emptyIterator();
         return () -> new Iterator<>() {
             private int start;
-            private String next;
+            private Row next;
             private boolean ready;
 
             @Override
@@ -121,13 +118,13 @@ public final class TmuxParser {
             }
 
             @Override
-            public String next() {
+            public Row next() {
                 prepare();
                 if (next == null) throw new NoSuchElementException();
-                String line = next;
+                Row row = next;
                 next = null;
                 ready = false;
-                return line;
+                return row;
             }
 
             private void prepare() {
@@ -137,10 +134,10 @@ public final class TmuxParser {
                     int rawEnd = output.indexOf('\n', start);
                     if (rawEnd < 0) rawEnd = output.length();
                     int end = rawEnd > start && output.charAt(rawEnd - 1) == '\r' ? rawEnd - 1 : rawEnd;
-                    String line = output.substring(start, end);
+                    int lineStart = start;
                     start = rawEnd + 1;
-                    if (!line.isBlank()) {
-                        next = line;
+                    if (!blank(output, lineStart, end)) {
+                        next = new Row(output, lineStart, end);
                         return;
                     }
                     if (rawEnd == output.length()) break;
@@ -150,9 +147,16 @@ public final class TmuxParser {
         };
     }
 
-    private static String required(Row row, String line, String type) {
+    private static boolean blank(String value, int start, int end) {
+        for (int i = start; i < end; i++) {
+            if (!isAsciiWhitespace(value.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    private static String required(Row row, String type) {
         if (!row.hasNext()) {
-            throw new IllegalArgumentException("invalid tmux " + type + " row: " + printable(line));
+            throw new IllegalArgumentException("invalid tmux " + type + " row: " + printable(row));
         }
         return row.next();
     }
@@ -173,8 +177,13 @@ public final class TmuxParser {
         }
     }
 
-    private static String printable(String line) {
-        return line.replace(SEP_CHAR, '|');
+    private static String printable(Row row) {
+        StringBuilder printable = new StringBuilder(row.end - row.lineStart);
+        for (int i = row.lineStart; i < row.end; i++) {
+            char c = row.source.charAt(i);
+            printable.append(c == SEP_CHAR ? '|' : c);
+        }
+        return printable.toString();
     }
 
     private static String windowKey(String session, int index) {
@@ -206,12 +215,17 @@ public final class TmuxParser {
     }
 
     private static final class Row {
-        private final String line;
+        private final String source;
+        private final int lineStart;
+        private final int end;
         private int start;
         private boolean available = true;
 
-        private Row(String line) {
-            this.line = line;
+        private Row(String source, int start, int end) {
+            this.source = source;
+            this.lineStart = start;
+            this.start = start;
+            this.end = end;
         }
 
         private boolean hasNext() {
@@ -222,20 +236,20 @@ public final class TmuxParser {
             if (!available) return false;
             int index = start;
             for (int seen = 1; seen < fields; seen++) {
-                index = line.indexOf(SEP_CHAR, index);
-                if (index < 0) return false;
+                index = source.indexOf(SEP_CHAR, index);
+                if (index < 0 || index >= end) return false;
                 index++;
             }
             return true;
         }
 
         private String next() {
-            int sep = line.indexOf(SEP_CHAR, start);
-            if (sep < 0) {
+            int sep = source.indexOf(SEP_CHAR, start);
+            if (sep < 0 || sep >= end) {
                 available = false;
-                return line.substring(start);
+                return source.substring(start, end);
             }
-            String value = line.substring(start, sep);
+            String value = source.substring(start, sep);
             start = sep + 1;
             return value;
         }

@@ -146,6 +146,7 @@ final class TmuxParserTests {
         tests.check(!source.contains("trimRight(trimLeft"), "tmux parser two-sided trim uses one substring");
         tests.check(!source.contains("new ArrayList<>(8)"), "tmux parser avoids list allocation for row fields");
         tests.check(!source.contains("String[]") && !source.contains("new String["), "tmux parser avoids array allocation for row fields");
+        tests.check(!source.contains("output.substring(start, end)"), "tmux parser avoids line substring allocation");
     }
 
     private static String fixture(String name) throws Exception {
