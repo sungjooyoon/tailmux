@@ -182,7 +182,11 @@ public final class TmuxParser {
     }
 
     private static String trim(String value) {
-        return trimRight(trimLeft(value));
+        int start = 0;
+        int end = value.length();
+        while (start < end && isAsciiWhitespace(value.charAt(start))) start++;
+        while (end > start && isAsciiWhitespace(value.charAt(end - 1))) end--;
+        return start == 0 && end == value.length() ? value : value.substring(start, end);
     }
 
     private static String trimLeft(String value) {

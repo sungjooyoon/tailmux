@@ -143,6 +143,7 @@ final class TmuxParserTests {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxParser.java"));
         tests.check(!source.contains(".stream()"), "tmux parser avoids stream pipelines");
         tests.check(!source.contains(".strip"), "tmux parser uses protocol-local ascii trim");
+        tests.check(!source.contains("trimRight(trimLeft"), "tmux parser two-sided trim uses one substring");
         tests.check(!source.contains("new ArrayList<>(8)"), "tmux parser avoids list allocation for row fields");
         tests.check(!source.contains("String[]") && !source.contains("new String["), "tmux parser avoids array allocation for row fields");
     }
