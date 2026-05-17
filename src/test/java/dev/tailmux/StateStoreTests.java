@@ -26,6 +26,7 @@ final class StateStoreTests extends TestMain {
         testStateWritersAvoidStreamCollectors();
         testAtomicPropertyEscapeIsSinglePass();
         testSnapshotLoadListsUseStoredCounts();
+        testEventLogSortsApprovedFieldsOnly();
     }
 
     private void testStateRoundTrip() throws Exception {
@@ -160,6 +161,11 @@ final class StateStoreTests extends TestMain {
         check(source.contains("new ArrayList<>(sessionCount)"), "snapshot load pre-sizes sessions");
         check(source.contains("new ArrayList<>(windowCount)"), "snapshot load pre-sizes windows");
         check(source.contains("new ArrayList<>(paneCount)"), "snapshot load pre-sizes panes");
+    }
+
+    private void testEventLogSortsApprovedFieldsOnly() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(!source.contains("new ArrayList<>(fields.keySet())"), "event log copies approved fields only");
     }
 
     private TailmuxException expectTailmuxException(ThrowingRunnable runnable) {

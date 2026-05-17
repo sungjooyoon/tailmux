@@ -180,14 +180,17 @@ public final class PropertiesStateStore {
     public void appendEvent(Instant at, String event, Map<String, String> fields) {
         try {
             Files.createDirectories(stateDir.resolve("events"));
-            ArrayList<String> names = new ArrayList<>(fields.keySet());
+            ArrayList<String> names = new ArrayList<>(EVENT_FIELDS.size());
+            for (String name : fields.keySet()) {
+                if (EVENT_FIELDS.contains(name)) names.add(name);
+            }
             Collections.sort(names);
             StringBuilder line = new StringBuilder("timestamp=")
                     .append(clean(at.toString()))
                     .append(" event=")
                     .append(clean(event));
             for (String name : names) {
-                if (EVENT_FIELDS.contains(name)) line.append(' ').append(name).append('=').append(clean(fields.get(name)));
+                line.append(' ').append(name).append('=').append(clean(fields.get(name)));
             }
             line.append('\n');
             Files.writeString(stateDir.resolve("events").resolve(at.toString().substring(0, 10) + ".log"),
