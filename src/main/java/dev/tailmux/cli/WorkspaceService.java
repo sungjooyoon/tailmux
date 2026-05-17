@@ -44,15 +44,14 @@ final class WorkspaceService {
         String target = firstArg(args, "attach: target");
         return target.contains(":")
                 ? attachSelector(Selector.parse(target))
-                : smartWorkspace(WorkspaceName.parse(target), Optional.empty());
+                : smartWorkspace(WorkspaceName.parse(target), null);
     }
 
-    int startCommand(List<String> args, Optional<String> home) throws IOException, InterruptedException {
-        Optional<NodeId> parsedHome = home.isPresent() ? Optional.of(NodeId.parse(home.get())) : Optional.empty();
-        return smartWorkspace(WorkspaceName.parse(firstArg(args, "start: workspace name")), parsedHome);
+    int startCommand(List<String> args, String home) throws IOException, InterruptedException {
+        return smartWorkspace(WorkspaceName.parse(firstArg(args, "start: workspace name")), home == null ? null : NodeId.parse(home));
     }
 
-    int smartWorkspace(WorkspaceName workspaceName, Optional<NodeId> explicitHome) throws IOException, InterruptedException {
+    int smartWorkspace(WorkspaceName workspaceName, NodeId explicitHome) throws IOException, InterruptedException {
         Optional<Workspace> registered = store.loadWorkspace(workspaceName.value());
         if (registered.isPresent()) {
             Workspace workspace = registered.get();
@@ -67,7 +66,7 @@ final class WorkspaceService {
         int offlineMatchCount = 0;
         NodeConfig firstHealthy = null;
         NodeConfig defaultHealthy = null;
-        NodeConfig explicitHealthy = explicitHome.isPresent() ? config.node(explicitHome.get()) : null;
+        NodeConfig explicitHealthy = explicitHome == null ? null : config.node(explicitHome);
         boolean explicitHomeHealthy = false;
         for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), false)) {
             NodeSnapshot snapshot = discovered.snapshot();

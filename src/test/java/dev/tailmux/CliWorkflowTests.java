@@ -26,6 +26,7 @@ final class CliWorkflowTests extends TestMain {
         testCommandRouting();
         testCommandRoutingAvoidsBuiltinList();
         testParsedCommandAvoidsDefensiveArgCopy();
+        testCommandRoutingAvoidsHomeOptionalWrappers();
         testCommandFlagsAvoidRepeatedContainsScans();
         testWorkspaceCreatesOnDefaultHome();
         testWorkspaceSelectionAvoidsTransientMatchLists();
@@ -66,6 +67,13 @@ final class CliWorkflowTests extends TestMain {
     private void testParsedCommandAvoidsDefensiveArgCopy() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/ParsedCommand.java"));
         check(!source.contains("List.copyOf(args)"), "parsed command avoids copying owned routing args");
+    }
+
+    private void testCommandRoutingAvoidsHomeOptionalWrappers() throws Exception {
+        String parsed = Files.readString(Path.of("src/main/java/dev/tailmux/cli/ParsedCommand.java"));
+        String router = Files.readString(Path.of("src/main/java/dev/tailmux/cli/CommandRouter.java"));
+        String workspace = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
+        check(!parsed.contains("Optional<") && !router.contains("Optional.") && !workspace.contains("Optional<NodeId> explicitHome"), "routing carries explicit home without optional wrappers");
     }
 
     private void testCommandFlagsAvoidRepeatedContainsScans() throws Exception {

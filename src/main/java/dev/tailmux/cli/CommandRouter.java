@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public final class CommandRouter {
     private final TailmuxConfig config;
@@ -40,12 +39,12 @@ public final class CommandRouter {
 
     public ParsedCommand classify(List<String> args) {
         if (args.isEmpty()) {
-            return new ParsedCommand("help", List.of(), Optional.empty());
+            return new ParsedCommand("help", List.of(), null);
         }
         String first = args.getFirst();
         return switch (first) {
             case "doctor", "nodes", "ls", "attach", "start", "help" -> parseBuiltin(first, args.subList(1, args.size()));
-            default -> new ParsedCommand("workspace", List.of(first), Optional.empty());
+            default -> new ParsedCommand("workspace", List.of(first), null);
         };
     }
 
@@ -60,7 +59,7 @@ public final class CommandRouter {
                 case "ls" -> list(parsed.args());
                 case "attach" -> workspace.attachCommand(parsed.args());
                 case "start" -> workspace.startCommand(parsed.args(), parsed.home());
-                case "workspace" -> workspace.smartWorkspace(WorkspaceName.parse(parsed.args().getFirst()), Optional.empty());
+                case "workspace" -> workspace.smartWorkspace(WorkspaceName.parse(parsed.args().getFirst()), null);
                 default -> usage();
             };
         } catch (TailmuxException e) {
@@ -81,10 +80,10 @@ public final class CommandRouter {
 
     private ParsedCommand parseBuiltin(String command, List<String> rest) {
         if (!"start".equals(command)) {
-            return new ParsedCommand(command, rest, Optional.empty());
+            return new ParsedCommand(command, rest, null);
         }
         ArrayList<String> parsedArgs = null;
-        Optional<String> home = Optional.empty();
+        String home = null;
         for (int i = 0; i < rest.size(); i++) {
             String arg = rest.get(i);
             if ("--home".equals(arg)) {
@@ -92,7 +91,7 @@ public final class CommandRouter {
                     throw new IllegalArgumentException("--home requires a node");
                 }
                 if (parsedArgs == null) parsedArgs = new ArrayList<>(rest.subList(0, i));
-                home = Optional.of(rest.get(++i));
+                home = rest.get(++i);
             } else {
                 if (parsedArgs != null) parsedArgs.add(arg);
             }
