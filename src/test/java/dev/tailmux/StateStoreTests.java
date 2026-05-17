@@ -27,6 +27,7 @@ final class StateStoreTests extends TestMain {
         testAtomicPropertyEscapeIsSinglePass();
         testSnapshotLoadListsUseStoredCounts();
         testEventLogSortsApprovedFieldsOnly();
+        testEventLogFormatsTimestampOnce();
     }
 
     private void testStateRoundTrip() throws Exception {
@@ -166,6 +167,17 @@ final class StateStoreTests extends TestMain {
     private void testEventLogSortsApprovedFieldsOnly() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
         check(!source.contains("new ArrayList<>(fields.keySet())"), "event log copies approved fields only");
+    }
+
+    private void testEventLogFormatsTimestampOnce() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(count(source, "at.toString()") == 1, "event log formats timestamp once");
+    }
+
+    private int count(String source, String needle) {
+        int count = 0;
+        for (int index = source.indexOf(needle); index >= 0; index = source.indexOf(needle, index + needle.length())) count++;
+        return count;
     }
 
     private TailmuxException expectTailmuxException(ThrowingRunnable runnable) {
