@@ -16,6 +16,8 @@ final class CoreTests extends TestMain {
     void run() throws Exception {
         testWorkspaceNameValidation();
         testSelectorParsing();
+        testCoreParsingUsesAsciiTextHelpers();
+        testSelectorIndexParsingAvoidsSubstrings();
         testShellQuoting();
         testShellQuotingAvoidsReplaceHelper();
         testLauncherArgStripAvoidsPathReplace();
@@ -51,6 +53,22 @@ final class CoreTests extends TestMain {
 
         expectThrows(IllegalArgumentException.class, () -> Selector.parse("work"), "selector requires node");
         expectThrows(IllegalArgumentException.class, () -> Selector.parse("office-a:work.two"), "selector rejects nonnumeric window");
+        expectThrows(IllegalArgumentException.class, () -> Selector.parse("office-a:work.999999999999"), "selector rejects overflowing window");
+    }
+
+    private void testCoreParsingUsesAsciiTextHelpers() throws Exception {
+        for (String file : List.of(
+                "src/main/java/dev/tailmux/core/NodeId.java",
+                "src/main/java/dev/tailmux/core/WorkspaceName.java",
+                "src/main/java/dev/tailmux/core/Selector.java")) {
+            String source = Files.readString(Path.of(file));
+            check(!source.contains("value.trim()") && !source.contains(".isBlank("), file + " uses ascii text helpers");
+        }
+    }
+
+    private void testSelectorIndexParsingAvoidsSubstrings() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/core/Selector.java"));
+        check(!source.contains("parseIndex(target.substring"), "selector parses numeric ranges without substring allocation");
     }
 
     private void testShellQuoting() {

@@ -1,17 +1,20 @@
 package dev.tailmux.core;
 
+import dev.tailmux.text.Ascii;
+
 import java.util.Objects;
 
 public record NodeId(String value) {
     public NodeId {
         Objects.requireNonNull(value, "value");
+        value = Ascii.trim(value);
         if (!valid(value, true)) {
             throw new IllegalArgumentException("invalid node id: " + value);
         }
     }
 
     public static NodeId parse(String value) {
-        return new NodeId(value.trim());
+        return new NodeId(value);
     }
 
     @Override
