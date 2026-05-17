@@ -24,6 +24,7 @@ final class ListRenderingTests extends TestMain {
         testListPanesRendersPaneRows();
         testRendererAvoidsFormatterAndStreams();
         testActivePaneCachesPaneList();
+        testLsRendererCachesSnapshotValues();
     }
 
     private void testListRendersLiveWindowCounts() throws Exception {
@@ -110,6 +111,15 @@ final class ListRenderingTests extends TestMain {
         int next = source.indexOf("private static String valueOrDash", method);
         String body = source.substring(method, next);
         check(count(body, "window.panes()") == 1, "active pane renderer reads window panes once");
+    }
+
+    private void testLsRendererCachesSnapshotValues() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/Renderers.java"));
+        int method = source.indexOf("public static void renderLs");
+        int next = source.indexOf("public static void renderNodes", method);
+        String body = source.substring(method, next);
+        check(count(body, "snapshot.sessions()") == 1, "ls renderer caches snapshot sessions");
+        check(count(body, "relative(snapshot.lastSeenAt(), clock)") == 1, "ls renderer computes last-seen text once per node");
     }
 
     private int count(String source, String needle) {

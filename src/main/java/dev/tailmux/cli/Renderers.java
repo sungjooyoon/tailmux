@@ -22,30 +22,34 @@ public final class Renderers {
     public static void renderLs(Console console, List<NodeSnapshot> snapshots, Clock clock, boolean showWindows, boolean showPanes) {
         console.out("NODE      STATUS     SESSION   WINDOWS   ATTACHED   LAST SEEN");
         for (NodeSnapshot snapshot : snapshots) {
-            if (snapshot.sessions().isEmpty()) {
-                console.out(row(snapshot.node().value(), snapshot.status().display(), "-", "-", "-", relative(snapshot.lastSeenAt(), clock)));
+            String node = snapshot.node().value();
+            String status = snapshot.status().display();
+            String seen = relative(snapshot.lastSeenAt(), clock);
+            List<TmuxSession> sessions = snapshot.sessions();
+            if (sessions.isEmpty()) {
+                console.out(row(node, status, "-", "-", "-", seen));
                 continue;
             }
-            for (TmuxSession session : snapshot.sessions()) {
+            for (TmuxSession session : sessions) {
                 console.out(row(
-                        snapshot.node().value(),
-                        snapshot.status().display(),
+                        node,
+                        status,
                         session.name(),
                         Integer.toString(session.windowCount()),
                         session.attached() ? "yes" : "no",
-                        relative(snapshot.lastSeenAt(), clock)
+                        seen
                 ));
                 if (showWindows) {
                     for (TmuxWindow window : session.windows()) {
                         TmuxPane active = activePane(window);
-                        console.out("  " + snapshot.node().value() + ":" + session.name() + "." + window.index()
+                        console.out("  " + node + ":" + session.name() + "." + window.index()
                                 + "  " + window.name()
                                 + (window.active() ? "  active" : "")
                                 + "  " + valueOrDash(active.currentPath())
                                 + "  " + valueOrDash(active.currentCommand()));
                         if (showPanes) {
                             for (TmuxPane pane : window.panes()) {
-                                console.out("    " + snapshot.node().value() + ":" + session.name() + "." + window.index() + "." + pane.index()
+                                console.out("    " + node + ":" + session.name() + "." + window.index() + "." + pane.index()
                                         + "  " + valueOrDash(pane.currentPath())
                                         + "  " + valueOrDash(pane.currentCommand())
                                         + (pane.active() ? "  active" : ""));
