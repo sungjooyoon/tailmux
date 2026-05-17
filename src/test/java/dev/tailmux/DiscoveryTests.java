@@ -29,6 +29,7 @@ final class DiscoveryTests extends TestMain {
         testListDiscoversNodesConcurrently();
         testDiscoveryWorkerFailureIsReported();
         testDiscoveryLoadsCachedSnapshotOnce();
+        testDiscoveryDoesNotCopyInternalResults();
     }
 
     private void testOfflineCachedRendering() throws Exception {
@@ -166,5 +167,10 @@ final class DiscoveryTests extends TestMain {
     private void testDiscoveryLoadsCachedSnapshotOnce() throws Exception {
         String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DiscoveryService.java"));
         check(source.indexOf("store.loadSnapshot(") == source.lastIndexOf("store.loadSnapshot("), "discovery loads cached snapshot once per node path");
+    }
+
+    private void testDiscoveryDoesNotCopyInternalResults() throws Exception {
+        String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DiscoveryService.java"));
+        check(!source.contains("List.copyOf(discovered)"), "discovery does not copy internal parallel results before immediate consumption");
     }
 }

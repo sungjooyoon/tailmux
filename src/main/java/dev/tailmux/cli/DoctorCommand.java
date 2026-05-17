@@ -212,7 +212,15 @@ final class DoctorCommand {
     }
 
     private boolean pingReachable(ExecResult result) {
-        return result.ok() || result.stdout().toLowerCase().contains("pong from");
+        return result.ok() || containsAsciiIgnoreCase(result.stdout(), "pong from");
+    }
+
+    private boolean containsAsciiIgnoreCase(String text, String needle) {
+        int end = text.length() - needle.length();
+        for (int i = 0; i <= end; i++) {
+            if (text.regionMatches(true, i, needle, 0, needle.length())) return true;
+        }
+        return false;
     }
 
     private boolean shouldCheckTailscaleDns(String host) {

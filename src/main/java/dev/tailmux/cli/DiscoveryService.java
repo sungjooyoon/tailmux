@@ -67,7 +67,7 @@ final class DiscoveryService {
                     throw new TailmuxException(ExitCodes.GENERAL_FAILURE, "FAIL discovery: " + cause.getMessage(), cause);
                 }
             }
-            return List.copyOf(discovered);
+            return discovered;
         }
     }
 
