@@ -30,6 +30,7 @@ final class CliWorkflowTests extends TestMain {
         testWorkspaceCreatesOnDefaultHome();
         testWorkspaceSelectionAvoidsTransientMatchLists();
         testWorkspaceSelectionAvoidsOptionalPipelines();
+        testWorkspaceSelectionCachesSnapshotValues();
         testWorkspaceDiscoverySkipsWindowAndPaneMetadata();
         testRegistryOwnerUnreachableDoesNotCreateDuplicate();
         testCachedOfflineWorkspaceDoesNotCreateDuplicate();
@@ -97,6 +98,12 @@ final class CliWorkflowTests extends TestMain {
     private void testWorkspaceSelectionAvoidsOptionalPipelines() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
         check(!source.contains(".map(") && !source.contains(".orElse("), "workspace selection uses explicit Optional branches");
+    }
+
+    private void testWorkspaceSelectionCachesSnapshotValues() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
+        check(count(source, "snapshot.status()") == 1, "workspace selection caches snapshot status");
+        check(count(source, "snapshot.sessions()") == 1, "workspace selection caches snapshot sessions");
     }
 
     private void testWorkspaceDiscoverySkipsWindowAndPaneMetadata() throws Exception {
@@ -324,5 +331,11 @@ final class CliWorkflowTests extends TestMain {
 
         check(exit == ExitCodes.REMOTE_EXECUTION_ERROR, "attach ssh failure exits remote error");
         check(console.err().contains("tailscale ssh sjy-2@sungjoos-mac-studio 'echo ok'"), "attach ssh failure suggests configured target");
+    }
+
+    private int count(String source, String needle) {
+        int count = 0;
+        for (int index = source.indexOf(needle); index >= 0; index = source.indexOf(needle, index + needle.length())) count++;
+        return count;
     }
 }

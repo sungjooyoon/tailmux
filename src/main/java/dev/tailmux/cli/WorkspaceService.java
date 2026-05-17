@@ -73,14 +73,15 @@ final class WorkspaceService {
         for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), false)) {
             NodeSnapshot snapshot = discovered.snapshot();
             NodeConfig node = discovered.node();
-            if (snapshot.status() == NodeStatus.ONLINE) {
+            NodeStatus status = snapshot.status();
+            if (status == NodeStatus.ONLINE) {
                 if (firstHealthy == null) firstHealthy = node;
                 if (node.id().equals(config.defaultHome())) defaultHealthy = node;
                 if (explicitHealthy != null && node.id().equals(explicitHealthy.id())) explicitHomeHealthy = true;
             }
             for (TmuxSession session : snapshot.sessions()) {
                 if (!session.name().equals(workspaceName.value())) continue;
-                if (snapshot.status() == NodeStatus.ONLINE) {
+                if (status == NodeStatus.ONLINE) {
                     matchCount++;
                     if (match == null) match = new NodeSession(node, session);
                 } else {
