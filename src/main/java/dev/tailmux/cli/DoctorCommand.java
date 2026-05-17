@@ -203,11 +203,10 @@ final class DoctorCommand {
 
     private SshFailure classifySshFailure(ExecResult result, String error) {
         if (result.exitCode() == 124) return SshFailure.TIMEOUT;
-        String lower = error.toLowerCase();
-        if (lower.contains("could not resolve hostname") || lower.contains("nodename nor servname provided")) return SshFailure.RESOLVER;
-        if (lower.contains("timed out")) return SshFailure.TIMEOUT;
-        if (lower.contains("host key verification failed") || lower.contains("no ed25519 host key is known")) return SshFailure.HOST_KEY;
-        if (lower.contains("permission denied") || lower.contains("authentication failed")) return SshFailure.AUTH;
+        if (containsAsciiIgnoreCase(error, "could not resolve hostname") || containsAsciiIgnoreCase(error, "nodename nor servname provided")) return SshFailure.RESOLVER;
+        if (containsAsciiIgnoreCase(error, "timed out")) return SshFailure.TIMEOUT;
+        if (containsAsciiIgnoreCase(error, "host key verification failed") || containsAsciiIgnoreCase(error, "no ed25519 host key is known")) return SshFailure.HOST_KEY;
+        if (containsAsciiIgnoreCase(error, "permission denied") || containsAsciiIgnoreCase(error, "authentication failed")) return SshFailure.AUTH;
         return SshFailure.OTHER;
     }
 

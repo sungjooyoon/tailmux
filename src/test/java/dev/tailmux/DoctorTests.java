@@ -125,7 +125,7 @@ final class DoctorTests extends TestMain {
     private void testDoctorFoldsDiagnosticTextOnce() throws Exception {
         String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DoctorCommand.java"));
         int folds = count(source, "toLowerCase()");
-        check(folds == 1, "doctor folds ssh diagnostic text once and does not allocate for ping checks");
+        check(folds == 0, "doctor diagnostic classification avoids folded string allocation");
         check(!source.contains("stdout().toLowerCase()"), "doctor ping reachability avoids lowercasing command output");
     }
 
