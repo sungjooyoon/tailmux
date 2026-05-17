@@ -19,6 +19,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -143,9 +144,10 @@ public final class PropertiesStateStore {
         p.setProperty("node", snapshot.node().value());
         p.setProperty("status", snapshot.status().name());
         p.setProperty("lastSeenAt", snapshot.lastSeenAt().toString());
-        p.setProperty("sessions.count", Integer.toString(snapshot.sessions().size()));
-        for (int i = 0; i < snapshot.sessions().size(); i++) {
-            TmuxSession session = snapshot.sessions().get(i);
+        List<TmuxSession> sessions = snapshot.sessions();
+        p.setProperty("sessions.count", Integer.toString(sessions.size()));
+        for (int i = 0; i < sessions.size(); i++) {
+            TmuxSession session = sessions.get(i);
             String prefix = "sessions." + i + ".";
             p.setProperty(prefix + "socket", session.socket());
             p.setProperty(prefix + "name", session.name());
@@ -154,17 +156,19 @@ public final class PropertiesStateStore {
             p.setProperty(prefix + "created", Long.toString(session.createdAtEpochSeconds()));
             p.setProperty(prefix + "activity", Long.toString(session.activityAtEpochSeconds()));
             p.setProperty(prefix + "windows.total", Integer.toString(session.windowCount()));
-            p.setProperty(prefix + "windows.count", Integer.toString(session.windows().size()));
-            for (int w = 0; w < session.windows().size(); w++) {
-                TmuxWindow window = session.windows().get(w);
+            List<TmuxWindow> windows = session.windows();
+            p.setProperty(prefix + "windows.count", Integer.toString(windows.size()));
+            for (int w = 0; w < windows.size(); w++) {
+                TmuxWindow window = windows.get(w);
                 String wp = prefix + "windows." + w + ".";
                 p.setProperty(wp + "index", Integer.toString(window.index()));
                 p.setProperty(wp + "id", window.id());
                 p.setProperty(wp + "name", window.name());
                 p.setProperty(wp + "active", Boolean.toString(window.active()));
-                p.setProperty(wp + "panes.count", Integer.toString(window.panes().size()));
-                for (int pane = 0; pane < window.panes().size(); pane++) {
-                    TmuxPane tmuxPane = window.panes().get(pane);
+                List<TmuxPane> panes = window.panes();
+                p.setProperty(wp + "panes.count", Integer.toString(panes.size()));
+                for (int pane = 0; pane < panes.size(); pane++) {
+                    TmuxPane tmuxPane = panes.get(pane);
                     String pp = wp + "panes." + pane + ".";
                     p.setProperty(pp + "index", Integer.toString(tmuxPane.index()));
                     p.setProperty(pp + "id", tmuxPane.id());

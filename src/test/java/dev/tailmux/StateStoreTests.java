@@ -26,6 +26,7 @@ final class StateStoreTests extends TestMain {
         testStateWritersAvoidStreamCollectors();
         testAtomicPropertyEscapeIsSinglePass();
         testSnapshotLoadListsUseStoredCounts();
+        testSnapshotWriteCachesNestedLists();
         testEventLogSortsApprovedFieldsOnly();
         testEventLogFormatsTimestampOnce();
     }
@@ -162,6 +163,13 @@ final class StateStoreTests extends TestMain {
         check(source.contains("new ArrayList<>(sessionCount)"), "snapshot load pre-sizes sessions");
         check(source.contains("new ArrayList<>(windowCount)"), "snapshot load pre-sizes windows");
         check(source.contains("new ArrayList<>(paneCount)"), "snapshot load pre-sizes panes");
+    }
+
+    private void testSnapshotWriteCachesNestedLists() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(count(source, "snapshot.sessions()") == 1, "snapshot writer caches sessions list");
+        check(count(source, "session.windows()") == 1, "snapshot writer caches windows list");
+        check(count(source, "window.panes()") == 1, "snapshot writer caches panes list");
     }
 
     private void testEventLogSortsApprovedFieldsOnly() throws Exception {
