@@ -30,7 +30,7 @@ public final class TmuxParser {
     public static NodeSnapshot parse(NodeId node, String socket, String sessionsOutput, String windowsOutput, String panesOutput, Instant seenAt) {
         Map<String, MutableSession> sessions = new LinkedHashMap<>();
         Map<String, MutableWindow> windows = new LinkedHashMap<>();
-        boolean hasFullPaneRows = panesOutput != null && !panesOutput.isBlank();
+        boolean hasFullPaneRows = Ascii.hasText(panesOutput);
         for (Row row : rows(sessionsOutput)) {
             String name = required(row, "session");
             String id = required(row, "session");
