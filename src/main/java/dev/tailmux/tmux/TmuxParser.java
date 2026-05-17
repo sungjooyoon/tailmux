@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 public final class TmuxParser {
-    private static final String SEP = "\u001F";
     private static final char SEP_CHAR = '\u001F';
 
     private TmuxParser() {
@@ -29,7 +28,6 @@ public final class TmuxParser {
 
     public static NodeSnapshot parse(NodeId node, String socket, String sessionsOutput, String windowsOutput, String panesOutput, Instant seenAt) {
         Map<String, MutableSession> sessions = new LinkedHashMap<>();
-        Map<String, MutableWindow> windows = new LinkedHashMap<>();
         boolean hasFullPaneRows = Ascii.hasText(panesOutput);
         for (Row row : rows(sessionsOutput)) {
             String name = required(row, "session");
@@ -62,7 +60,6 @@ public final class TmuxParser {
                     window.panes.add(new TmuxPane(parseInt(row.next()), row.next(), row.next(), row.next(), true));
                 }
                 session.windows.add(window);
-                windows.put(windowKey(sessionName, window.index), window);
             }
         }
 
@@ -74,7 +71,8 @@ public final class TmuxParser {
             String cwd = required(row, "pane");
             String command = required(row, "pane");
             boolean active = "1".equals(required(row, "pane"));
-            MutableWindow window = windows.get(windowKey(sessionName, windowIndex));
+            MutableSession session = sessions.get(sessionName);
+            MutableWindow window = session == null ? null : session.window(windowIndex);
             // Same rule as windows: orphan pane rows are ignored, not promoted into phantom sessions.
             if (window != null) {
                 window.panes.add(new TmuxPane(paneIndex, id, cwd, command, active));
@@ -187,10 +185,6 @@ public final class TmuxParser {
         return printable.toString();
     }
 
-    private static String windowKey(String session, int index) {
-        return session + SEP + index;
-    }
-
     private static final class Row {
         private final String source;
         private final int lineStart;
@@ -275,6 +269,13 @@ public final class TmuxParser {
             ArrayList<TmuxWindow> parsedWindows = new ArrayList<>(windows.size());
             for (MutableWindow window : windows) parsedWindows.add(window.toWindow());
             return new TmuxSession(socket, name, id, attached, created, activity, parsedWindows, windowCount);
+        }
+
+        private MutableWindow window(int index) {
+            for (MutableWindow window : windows) {
+                if (window.index == index) return window;
+            }
+            return null;
         }
     }
 
