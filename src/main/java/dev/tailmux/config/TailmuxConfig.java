@@ -21,6 +21,7 @@ public final class TailmuxConfig {
     private final NodeId defaultHome;
     private final List<NodeId> homePool;
     private final List<NodeConfig> nodeConfigs;
+    private final Map<NodeId, String> sshTargets;
     private final Map<NodeId, NodeConfig> nodes;
 
     private TailmuxConfig(Optional<String> user, NodeId defaultHome, List<NodeId> homePool, Map<NodeId, NodeConfig> nodes) {
@@ -31,6 +32,9 @@ public final class TailmuxConfig {
         ArrayList<NodeConfig> configs = new ArrayList<>(this.homePool.size());
         for (NodeId id : this.homePool) configs.add(this.nodes.get(id));
         this.nodeConfigs = List.copyOf(configs);
+        Map<NodeId, String> targets = new LinkedHashMap<>();
+        for (NodeConfig node : this.nodeConfigs) targets.put(node.id(), buildSshTarget(node));
+        this.sshTargets = Map.copyOf(targets);
     }
 
     public static TailmuxConfig load(Path home) {
@@ -90,8 +94,13 @@ public final class TailmuxConfig {
     }
 
     public String sshTarget(NodeConfig node) {
-        Optional<String> sshUser = node.user().or(() -> user);
-        return sshUser.map(value -> value + "@" + node.host()).orElse(node.host());
+        String target = sshTargets.get(node.id());
+        return target == null ? buildSshTarget(node) : target;
+    }
+
+    private String buildSshTarget(NodeConfig node) {
+        if (node.user().isPresent()) return node.user().get() + "@" + node.host();
+        return user.map(value -> value + "@" + node.host()).orElse(node.host());
     }
 
     private static List<NodeId> parseNodeList(String raw) {

@@ -15,6 +15,7 @@ final class ConfigTests extends TestMain {
         testConfigRequiresHomePool();
         testPerNodeUserOverridesGlobalUser();
         testNodeConfigsAreCached();
+        testSshTargetsAreCached();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -53,5 +54,14 @@ final class ConfigTests extends TestMain {
     private void testNodeConfigsAreCached() {
         TailmuxConfig config = configWithPool();
         check(config.nodeConfigs() == config.nodeConfigs(), "node config list is cached");
+    }
+
+    private void testSshTargetsAreCached() {
+        Properties p = new Properties();
+        p.setProperty("tailmux.user", "sungjooyoon");
+        p.setProperty("tailmux.home.pool", "office-a");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+
+        check(config.sshTarget(config.node(NodeId.parse("office-a"))) == config.sshTarget(config.node(NodeId.parse("office-a"))), "ssh target string is cached");
     }
 }
