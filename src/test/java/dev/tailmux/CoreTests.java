@@ -21,7 +21,7 @@ final class CoreTests extends TestMain {
         testTmuxEnsureSessionIsRaceTolerant();
         testTmuxDiscoveryShortCircuits();
         testTmuxNoServerClassifierAcceptsTmuxPhrasing();
-        testTmuxFailureClassifiesWithOneTextFold();
+        testTmuxFailureClassifiesWithoutTextFold();
         testProductParsingAvoidsRegexHelpers();
         testControlPathAvoidsStreamPipelines();
         testTmuxCommandsAvoidListWrappers();
@@ -74,12 +74,13 @@ final class CoreTests extends TestMain {
         check(TmuxFailure.noServer(ExecResult.failure(1, "", "failed to connect to server")), "classifies tmux failed-to-connect as no server");
     }
 
-    private void testTmuxFailureClassifiesWithOneTextFold() throws Exception {
+    private void testTmuxFailureClassifiesWithoutTextFold() throws Exception {
         check(TmuxFailure.classify(ExecResult.failure(127, "", "tmux: command not found")) == TmuxFailure.Kind.MISSING_BINARY, "classifies missing tmux");
+        check(TmuxFailure.classify(ExecResult.failure(1, "NO SERVER RUNNING\n", "")) == TmuxFailure.Kind.NO_SERVER, "classifies stdout tmux errors case-insensitively");
         check(TmuxFailure.classify(ExecResult.failure(255, "", "ssh failed")) == TmuxFailure.Kind.REMOTE_EXECUTION, "classifies remote execution failure");
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxFailure.java"));
-        check(source.indexOf("toLowerCase") == source.lastIndexOf("toLowerCase"), "tmux failure classification folds text once");
-        check(source.indexOf("result.exitCode() == 127") < source.indexOf("toLowerCase"), "tmux failure classifier checks numeric exits before folding text");
+        check(!source.contains("toLowerCase"), "tmux failure classification avoids folded string allocation");
+        check(!source.contains("stderr() +"), "tmux failure classification avoids joining stdout and stderr");
     }
 
     private void testTmuxDiscoveryShortCircuits() {

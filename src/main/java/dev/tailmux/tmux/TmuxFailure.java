@@ -18,18 +18,29 @@ public final class TmuxFailure {
         if (result.ok()) return Kind.OK;
         if (remoteExecution(result)) return Kind.REMOTE_EXECUTION;
         if (result.exitCode() == 127) return Kind.MISSING_BINARY;
-        String text = (result.stderr() + "\n" + result.stdout()).toLowerCase();
-        if (text.contains("tmux: command not found")
-                || text.contains("tmux: not found")
-                || text.contains("command not found: tmux")) {
+        if (contains(result, "tmux: command not found")
+                || contains(result, "tmux: not found")
+                || contains(result, "command not found: tmux")) {
             return Kind.MISSING_BINARY;
         }
-        if (text.contains("no server")
-                || text.contains("no tmux server")
-                || text.contains("failed to connect to server")) {
+        if (contains(result, "no server")
+                || contains(result, "no tmux server")
+                || contains(result, "failed to connect to server")) {
             return Kind.NO_SERVER;
         }
         return Kind.OTHER;
+    }
+
+    private static boolean contains(ExecResult result, String needle) {
+        return contains(result.stderr(), needle) || contains(result.stdout(), needle);
+    }
+
+    private static boolean contains(String text, String needle) {
+        int end = text.length() - needle.length();
+        for (int i = 0; i <= end; i++) {
+            if (text.regionMatches(true, i, needle, 0, needle.length())) return true;
+        }
+        return false;
     }
 
     public static boolean noServer(ExecResult result) {
