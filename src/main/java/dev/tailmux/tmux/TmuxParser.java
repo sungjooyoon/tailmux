@@ -96,11 +96,11 @@ public final class TmuxParser {
         String rest = output.substring(marker + TmuxCommands.DISCOVERY_WINDOWS_MARKER.length());
         int paneMarker = rest.indexOf(TmuxCommands.DISCOVERY_PANES_MARKER);
         if (paneMarker < 0) {
-            return new DiscoveryOutput(sessions.stripTrailing(), rest.stripLeading(), "");
+            return new DiscoveryOutput(trimRight(sessions), trimLeft(rest), "");
         }
         String windows = rest.substring(0, paneMarker);
         String panes = rest.substring(paneMarker + TmuxCommands.DISCOVERY_PANES_MARKER.length());
-        return new DiscoveryOutput(sessions.stripTrailing(), windows.strip(), panes.stripLeading());
+        return new DiscoveryOutput(trimRight(sessions), trim(windows), trimLeft(panes));
     }
 
     public static boolean isNoServer(ExecResult result) {
@@ -179,6 +179,26 @@ public final class TmuxParser {
 
     private static String windowKey(String session, int index) {
         return session + SEP + index;
+    }
+
+    private static String trim(String value) {
+        return trimRight(trimLeft(value));
+    }
+
+    private static String trimLeft(String value) {
+        int start = 0;
+        while (start < value.length() && isAsciiWhitespace(value.charAt(start))) start++;
+        return start == 0 ? value : value.substring(start);
+    }
+
+    private static String trimRight(String value) {
+        int end = value.length();
+        while (end > 0 && isAsciiWhitespace(value.charAt(end - 1))) end--;
+        return end == value.length() ? value : value.substring(0, end);
+    }
+
+    private static boolean isAsciiWhitespace(char c) {
+        return c == ' ' || c == '\n' || c == '\r' || c == '\t';
     }
 
     private static final class Row {
