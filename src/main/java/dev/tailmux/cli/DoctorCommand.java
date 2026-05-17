@@ -5,6 +5,7 @@ import dev.tailmux.config.TailmuxConfig;
 import dev.tailmux.exec.ExecResult;
 import dev.tailmux.exec.LocalProcess;
 import dev.tailmux.exec.RemoteExecutor;
+import dev.tailmux.text.Ascii;
 import dev.tailmux.tmux.TmuxCommands;
 import dev.tailmux.tmux.TmuxFailure;
 
@@ -203,23 +204,15 @@ final class DoctorCommand {
 
     private SshFailure classifySshFailure(ExecResult result, String error) {
         if (result.exitCode() == 124) return SshFailure.TIMEOUT;
-        if (containsAsciiIgnoreCase(error, "could not resolve hostname") || containsAsciiIgnoreCase(error, "nodename nor servname provided")) return SshFailure.RESOLVER;
-        if (containsAsciiIgnoreCase(error, "timed out")) return SshFailure.TIMEOUT;
-        if (containsAsciiIgnoreCase(error, "host key verification failed") || containsAsciiIgnoreCase(error, "no ed25519 host key is known")) return SshFailure.HOST_KEY;
-        if (containsAsciiIgnoreCase(error, "permission denied") || containsAsciiIgnoreCase(error, "authentication failed")) return SshFailure.AUTH;
+        if (Ascii.containsIgnoreCase(error, "could not resolve hostname") || Ascii.containsIgnoreCase(error, "nodename nor servname provided")) return SshFailure.RESOLVER;
+        if (Ascii.containsIgnoreCase(error, "timed out")) return SshFailure.TIMEOUT;
+        if (Ascii.containsIgnoreCase(error, "host key verification failed") || Ascii.containsIgnoreCase(error, "no ed25519 host key is known")) return SshFailure.HOST_KEY;
+        if (Ascii.containsIgnoreCase(error, "permission denied") || Ascii.containsIgnoreCase(error, "authentication failed")) return SshFailure.AUTH;
         return SshFailure.OTHER;
     }
 
     private boolean pingReachable(ExecResult result) {
-        return result.ok() || containsAsciiIgnoreCase(result.stdout(), "pong from");
-    }
-
-    private boolean containsAsciiIgnoreCase(String text, String needle) {
-        int end = text.length() - needle.length();
-        for (int i = 0; i <= end; i++) {
-            if (text.regionMatches(true, i, needle, 0, needle.length())) return true;
-        }
-        return false;
+        return result.ok() || Ascii.containsIgnoreCase(result.stdout(), "pong from");
     }
 
     private boolean shouldCheckTailscaleDns(String host) {

@@ -25,6 +25,7 @@ final class CoreTests extends TestMain {
         testProductParsingAvoidsRegexHelpers();
         testControlPathAvoidsStreamPipelines();
         testTmuxCommandsAvoidListWrappers();
+        testClassifiersShareAsciiScanner();
     }
 
     private void testWorkspaceNameValidation() {
@@ -117,5 +118,12 @@ final class CoreTests extends TestMain {
     private void testTmuxCommandsAvoidListWrappers() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxCommands.java"));
         check(!source.contains("List.of("), "tmux command construction avoids List.of wrappers");
+    }
+
+    private void testClassifiersShareAsciiScanner() throws Exception {
+        String tmux = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxFailure.java"));
+        String doctor = Files.readString(Path.of("src/main/java/dev/tailmux/cli/DoctorCommand.java"));
+        check(tmux.contains("Ascii.containsIgnoreCase") && doctor.contains("Ascii.containsIgnoreCase"), "diagnostic classifiers share ascii scanner");
+        check(!tmux.contains("regionMatches(true") && !doctor.contains("regionMatches(true"), "diagnostic classifiers do not duplicate scanner loops");
     }
 }

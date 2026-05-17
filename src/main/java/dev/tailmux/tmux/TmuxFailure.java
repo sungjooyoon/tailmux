@@ -1,6 +1,7 @@
 package dev.tailmux.tmux;
 
 import dev.tailmux.exec.ExecResult;
+import dev.tailmux.text.Ascii;
 
 public final class TmuxFailure {
     private TmuxFailure() {
@@ -32,15 +33,7 @@ public final class TmuxFailure {
     }
 
     private static boolean contains(ExecResult result, String needle) {
-        return contains(result.stderr(), needle) || contains(result.stdout(), needle);
-    }
-
-    private static boolean contains(String text, String needle) {
-        int end = text.length() - needle.length();
-        for (int i = 0; i <= end; i++) {
-            if (text.regionMatches(true, i, needle, 0, needle.length())) return true;
-        }
-        return false;
+        return Ascii.containsIgnoreCase(result.stderr(), needle) || Ascii.containsIgnoreCase(result.stdout(), needle);
     }
 
     public static boolean noServer(ExecResult result) {
