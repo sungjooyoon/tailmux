@@ -61,41 +61,48 @@ final class WorkspaceService {
             return rememberAndAttach("Found existing workspace:", workspace.name(), node, workspace.session(), workspace.socket(), workspace.createdAt());
         }
 
-        ArrayList<NodeSession> matches = new ArrayList<>();
-        ArrayList<NodeSession> offlineMatches = new ArrayList<>();
-        ArrayList<NodeConfig> healthy = new ArrayList<>();
+        NodeSession match = null;
+        NodeSession offlineMatch = null;
+        int matchCount = 0;
+        int offlineMatchCount = 0;
+        NodeConfig firstHealthy = null;
+        NodeConfig defaultHealthy = null;
+        NodeConfig explicitHealthy = explicitHome.map(config::node).orElse(null);
+        boolean explicitHomeHealthy = false;
         for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), false)) {
             NodeSnapshot snapshot = discovered.snapshot();
             NodeConfig node = discovered.node();
             if (snapshot.status() == NodeStatus.ONLINE) {
-                healthy.add(node);
+                if (firstHealthy == null) firstHealthy = node;
+                if (node.id().equals(config.defaultHome())) defaultHealthy = node;
+                if (explicitHealthy != null && node.id().equals(explicitHealthy.id())) explicitHomeHealthy = true;
             }
             for (TmuxSession session : snapshot.sessions()) {
                 if (!session.name().equals(workspaceName.value())) continue;
                 if (snapshot.status() == NodeStatus.ONLINE) {
-                    matches.add(new NodeSession(node, session));
+                    matchCount++;
+                    if (match == null) match = new NodeSession(node, session);
                 } else {
-                    offlineMatches.add(new NodeSession(node, session));
+                    offlineMatchCount++;
+                    if (offlineMatch == null) offlineMatch = new NodeSession(node, session);
                 }
             }
         }
 
-        if (!offlineMatches.isEmpty()) {
-            NodeSession match = offlineMatches.getFirst();
+        if (offlineMatchCount > 0) {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR,
-                    "FAIL workspace " + workspaceName.value() + " was last seen on offline node " + match.node().id().value()
+                    "FAIL workspace " + workspaceName.value() + " was last seen on offline node " + offlineMatch.node().id().value()
                             + "; refusing to create a duplicate. Reconnect that node or remove stale Tailmux state.");
         }
-        if (matches.size() > 1) {
+        if (matchCount > 1) {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR,
                     "FAIL workspace " + workspaceName.value() + " exists on multiple nodes. Use tailmux attach node:session.");
         }
-        if (matches.size() == 1) {
-            NodeSession match = matches.getFirst();
+        if (matchCount == 1) {
             return rememberAndAttach("Found existing workspace:", workspaceName, match.node(), match.session().name(), match.session().socket(), clock.instant());
         }
 
-        NodeConfig home = chooseHome(explicitHome, healthy);
+        NodeConfig home = chooseHome(explicitHealthy, explicitHomeHealthy, defaultHealthy, firstHealthy);
         ensureSession(home, home.defaultSocket(), workspaceName.value());
         return rememberAndAttach("Created workspace:", workspaceName, home, workspaceName.value(), home.defaultSocket(), clock.instant());
     }
@@ -117,20 +124,13 @@ final class WorkspaceService {
         return attach(node, socket, selector.session());
     }
 
-    private NodeConfig chooseHome(Optional<NodeId> explicitHome, List<NodeConfig> healthy) {
-        if (explicitHome.isPresent()) {
-            NodeConfig node = config.node(explicitHome.get());
-            for (NodeConfig candidate : healthy) {
-                if (candidate.id().equals(node.id())) return node;
-            }
-            throw new TailmuxException(ExitCodes.NO_HEALTHY_HOME_NODE, "FAIL " + node.id().value() + " is not healthy for workspace creation");
+    private NodeConfig chooseHome(NodeConfig explicitHome, boolean explicitHomeHealthy, NodeConfig defaultHealthy, NodeConfig firstHealthy) {
+        if (explicitHome != null) {
+            if (explicitHomeHealthy) return explicitHome;
+            throw new TailmuxException(ExitCodes.NO_HEALTHY_HOME_NODE, "FAIL " + explicitHome.id().value() + " is not healthy for workspace creation");
         }
-        NodeConfig first = null;
-        for (NodeConfig node : healthy) {
-            if (first == null) first = node;
-            if (node.id().equals(config.defaultHome())) return node;
-        }
-        if (first != null) return first;
+        if (defaultHealthy != null) return defaultHealthy;
+        if (firstHealthy != null) return firstHealthy;
         throw new TailmuxException(ExitCodes.NO_HEALTHY_HOME_NODE, "FAIL no healthy home node is available");
     }
 
