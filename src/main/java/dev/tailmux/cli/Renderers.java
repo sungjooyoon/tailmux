@@ -95,10 +95,11 @@ public final class Renderers {
     }
 
     private static TmuxPane activePane(TmuxWindow window) {
-        for (TmuxPane pane : window.panes()) {
+        List<TmuxPane> panes = window.panes();
+        for (TmuxPane pane : panes) {
             if (pane.active()) return pane;
         }
-        return window.panes().isEmpty() ? EMPTY_PANE : window.panes().getFirst();
+        return panes.isEmpty() ? EMPTY_PANE : panes.getFirst();
     }
 
     private static String valueOrDash(String value) {

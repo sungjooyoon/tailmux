@@ -23,6 +23,7 @@ final class ListRenderingTests extends TestMain {
         testListWindowsAvoidsFullPaneDiscovery();
         testListPanesRendersPaneRows();
         testRendererAvoidsFormatterAndStreams();
+        testActivePaneCachesPaneList();
     }
 
     private void testListRendersLiveWindowCounts() throws Exception {
@@ -101,5 +102,19 @@ final class ListRenderingTests extends TestMain {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/Renderers.java"));
         check(!source.contains("String.format"), "renderer avoids Formatter for fixed-width rows");
         check(!source.contains(".stream()"), "renderer avoids streams in row hot paths");
+    }
+
+    private void testActivePaneCachesPaneList() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/Renderers.java"));
+        int method = source.indexOf("private static TmuxPane activePane");
+        int next = source.indexOf("private static String valueOrDash", method);
+        String body = source.substring(method, next);
+        check(count(body, "window.panes()") == 1, "active pane renderer reads window panes once");
+    }
+
+    private int count(String source, String needle) {
+        int count = 0;
+        for (int index = source.indexOf(needle); index >= 0; index = source.indexOf(needle, index + needle.length())) count++;
+        return count;
     }
 }
