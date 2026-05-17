@@ -20,6 +20,7 @@ public final class TailmuxConfig {
     private final Optional<String> user;
     private final NodeId defaultHome;
     private final List<NodeId> homePool;
+    private final List<NodeConfig> nodeConfigs;
     private final Map<NodeId, NodeConfig> nodes;
 
     private TailmuxConfig(Optional<String> user, NodeId defaultHome, List<NodeId> homePool, Map<NodeId, NodeConfig> nodes) {
@@ -27,6 +28,9 @@ public final class TailmuxConfig {
         this.defaultHome = defaultHome;
         this.homePool = List.copyOf(homePool);
         this.nodes = Map.copyOf(nodes);
+        ArrayList<NodeConfig> configs = new ArrayList<>(this.homePool.size());
+        for (NodeId id : this.homePool) configs.add(this.nodes.get(id));
+        this.nodeConfigs = List.copyOf(configs);
     }
 
     public static TailmuxConfig load(Path home) {
@@ -74,9 +78,7 @@ public final class TailmuxConfig {
     }
 
     public List<NodeConfig> nodeConfigs() {
-        ArrayList<NodeConfig> configs = new ArrayList<>(homePool.size());
-        for (NodeId id : homePool) configs.add(node(id));
-        return configs;
+        return nodeConfigs;
     }
 
     public NodeConfig node(NodeId id) {

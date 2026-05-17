@@ -14,6 +14,7 @@ final class ConfigTests extends TestMain {
         testConfigDefaults();
         testConfigRequiresHomePool();
         testPerNodeUserOverridesGlobalUser();
+        testNodeConfigsAreCached();
     }
 
     private void testConfigDefaults() throws Exception {
@@ -47,5 +48,10 @@ final class ConfigTests extends TestMain {
 
         check(config.sshTarget(config.node(NodeId.parse("sungjoos-mac-pro"))).equals("sungjooyoon@sungjoos-mac-pro"), "global user applies by default");
         check(config.sshTarget(config.node(NodeId.parse("sungjoos-mac-studio"))).equals("sjy2@sungjoos-mac-studio"), "node user overrides global user");
+    }
+
+    private void testNodeConfigsAreCached() {
+        TailmuxConfig config = configWithPool();
+        check(config.nodeConfigs() == config.nodeConfigs(), "node config list is cached");
     }
 }
