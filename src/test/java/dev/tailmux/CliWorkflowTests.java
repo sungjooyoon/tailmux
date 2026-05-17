@@ -25,6 +25,7 @@ final class CliWorkflowTests extends TestMain {
     void run() throws Exception {
         testCommandRouting();
         testCommandRoutingAvoidsBuiltinList();
+        testCommandFlagsAvoidRepeatedContainsScans();
         testWorkspaceCreatesOnDefaultHome();
         testWorkspaceSelectionAvoidsTransientMatchLists();
         testWorkspaceDiscoverySkipsWindowAndPaneMetadata();
@@ -56,6 +57,11 @@ final class CliWorkflowTests extends TestMain {
     private void testCommandRoutingAvoidsBuiltinList() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/CommandRouter.java"));
         check(!source.contains("BUILTINS") && !source.contains(".contains(first)"), "command routing avoids builtin list scan");
+    }
+
+    private void testCommandFlagsAvoidRepeatedContainsScans() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/CommandRouter.java"));
+        check(!source.contains(".contains(\"--"), "command flags avoid repeated contains scans");
     }
 
     private void testWorkspaceCreatesOnDefaultHome() throws Exception {

@@ -56,9 +56,9 @@ public final class CommandRouter {
             ParsedCommand parsed = classify(args);
             store.appendEvent(clock.instant(), "command", Map.of("command", parsed.command()));
             return switch (parsed.command()) {
-                case "doctor" -> new DoctorCommand(config, remote, localProcess, console).run(parsed.args().contains("--network"));
+                case "doctor" -> doctor(parsed.args());
                 case "nodes" -> nodes();
-                case "ls" -> list(parsed.args().contains("--windows") || parsed.args().contains("--panes"), parsed.args().contains("--panes"));
+                case "ls" -> list(parsed.args());
                 case "attach" -> workspace.attachCommand(parsed.args());
                 case "start" -> workspace.startCommand(parsed.args(), parsed.home());
                 case "workspace" -> workspace.smartWorkspace(WorkspaceName.parse(parsed.args().getFirst()), Optional.empty());
@@ -110,8 +110,26 @@ public final class CommandRouter {
         return ExitCodes.SUCCESS;
     }
 
-    private int list(boolean includeWindows, boolean includePanes) {
-        Renderers.renderLs(console, discovery.discoverAll(config.nodeConfigs(), includeWindows, includePanes), clock, includeWindows, includePanes);
+    private int doctor(List<String> args) throws IOException, InterruptedException {
+        boolean network = false;
+        for (String arg : args) {
+            if ("--network".equals(arg)) network = true;
+        }
+        return new DoctorCommand(config, remote, localProcess, console).run(network);
+    }
+
+    private int list(List<String> args) {
+        boolean windows = false;
+        boolean panes = false;
+        for (String arg : args) {
+            if ("--panes".equals(arg)) {
+                panes = true;
+                windows = true;
+            } else if ("--windows".equals(arg)) {
+                windows = true;
+            }
+        }
+        Renderers.renderLs(console, discovery.discoverAll(config.nodeConfigs(), windows, panes), clock, windows, panes);
         return ExitCodes.SUCCESS;
     }
 }
