@@ -21,7 +21,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 final class WorkspaceService {
     private final TailmuxConfig config;
@@ -52,9 +51,8 @@ final class WorkspaceService {
     }
 
     int smartWorkspace(WorkspaceName workspaceName, NodeId explicitHome) throws IOException, InterruptedException {
-        Optional<Workspace> registered = store.loadWorkspace(workspaceName.value());
-        if (registered.isPresent()) {
-            Workspace workspace = registered.get();
+        Workspace workspace = store.loadWorkspace(workspaceName.value());
+        if (workspace != null) {
             NodeConfig node = config.node(workspace.home());
             ensureSession(node, workspace.socket(), workspace.session());
             return rememberAndAttach("Found existing workspace:", workspace.name(), node, workspace.session(), workspace.socket(), workspace.createdAt());

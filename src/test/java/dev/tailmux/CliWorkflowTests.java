@@ -198,7 +198,7 @@ final class CliWorkflowTests extends TestMain {
 
         check(exit == ExitCodes.SUCCESS, "discovered socket workspace exits success");
         check(remote.interactiveCommands().equals(List.of("office-a:tmux -L work attach-session -t modal")), "discovered workspace attaches to matching socket");
-        check(new PropertiesStateStore(home.resolve(".tailmux/state")).loadWorkspace("modal").orElseThrow().socket().equals("work"), "discovered workspace stores socket");
+        check(new PropertiesStateStore(home.resolve(".tailmux/state")).loadWorkspace("modal").socket().equals("work"), "discovered workspace stores socket");
     }
 
     private void testRegisteredWorkspaceUsesStoredSocket() throws Exception {

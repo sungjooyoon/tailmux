@@ -24,6 +24,7 @@ final class StateStoreTests extends TestMain {
         testWorkspaceWritesDeterministicKeys();
         testEventLogRedactsUnapprovedFields();
         testStateWritersAvoidStreamCollectors();
+        testStateReadsAvoidOptionalWrappers();
         testAtomicPropertyEscapeIsSinglePass();
         testSnapshotLoadListsUseStoredCounts();
         testSnapshotWriteCachesNestedLists();
@@ -40,7 +41,7 @@ final class StateStoreTests extends TestMain {
         PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
         store.saveWorkspace("work", NodeId.parse("office-a"), "work", Instant.parse("2026-05-15T18:12:00Z"), Instant.parse("2026-05-15T19:02:13Z"));
 
-        var loaded = store.loadWorkspace("work").orElseThrow();
+        var loaded = store.loadWorkspace("work");
         check(loaded.name().value().equals("work"), "workspace name round-trip");
         check(loaded.home().value().equals("office-a"), "workspace home round-trip");
         check(Files.exists(home.resolve(".tailmux/state/workspaces/work.properties")), "workspace file exists");
@@ -69,7 +70,7 @@ final class StateStoreTests extends TestMain {
         store.saveSnapshot(new NodeSnapshot(NodeId.parse("office-a"), NodeStatus.ONLINE, Instant.parse("2026-05-15T19:02:13Z"),
                 List.of(new TmuxSession("default", "work", "$1", false, 1, 2, List.of(), 4))));
 
-        var session = store.loadSnapshot(NodeId.parse("office-a")).orElseThrow().sessions().getFirst();
+        var session = store.loadSnapshot(NodeId.parse("office-a")).sessions().getFirst();
 
         check(session.windowCount() == 4, "snapshot window total round-trip");
     }
@@ -107,7 +108,7 @@ final class StateStoreTests extends TestMain {
                 sessions.0.windows.0.panes.count=1
                 """);
 
-        var pane = new PropertiesStateStore(state).loadSnapshot(NodeId.parse("office-a")).orElseThrow()
+        var pane = new PropertiesStateStore(state).loadSnapshot(NodeId.parse("office-a"))
                 .sessions().getFirst().windows().getFirst().panes().getFirst();
 
         check(pane.index() == 0, "missing pane index defaults");
@@ -155,6 +156,11 @@ final class StateStoreTests extends TestMain {
             String source = Files.readString(Path.of(file));
             check(!source.contains(".stream()") && !source.contains("Collectors"), file + " avoids stream collectors");
         }
+    }
+
+    private void testStateReadsAvoidOptionalWrappers() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(!source.contains("java.util.Optional") && !source.contains("Optional<") && !source.contains("Optional.of") && !source.contains("Optional.empty"), "state reads use nullable absence without Optional wrappers");
     }
 
     private void testAtomicPropertyEscapeIsSinglePass() throws Exception {

@@ -77,7 +77,7 @@ final class DiscoveryService {
     }
 
     private NodeSnapshot discoverOrCached(NodeConfig node, boolean includeWindows, boolean includePanes) {
-        NodeSnapshot cached = store.loadSnapshot(node.id()).orElse(null);
+        NodeSnapshot cached = store.loadSnapshot(node.id());
         if (recentOffline(cached)) return cached.withStatus(NodeStatus.OFFLINE);
         NodeSnapshot snapshot = discover(node, includeWindows, includePanes, cached);
         if (snapshot.status() == NodeStatus.ONLINE || snapshot.status() == NodeStatus.NO_TMUX) {

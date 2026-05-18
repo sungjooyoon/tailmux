@@ -83,7 +83,7 @@ final class DiscoveryTests extends TestMain {
                 .run(List.of("nodes"));
 
         check(exit == ExitCodes.SUCCESS, "timeout nodes exits success");
-        check(store.loadSnapshot(NodeId.parse("office-a")).orElseThrow().status().name().equals("SSH_FAILED"), "timeout snapshot saved as ssh_failed");
+        check(store.loadSnapshot(NodeId.parse("office-a")).status().name().equals("SSH_FAILED"), "timeout snapshot saved as ssh_failed");
     }
 
     private void testRecentOfflineSnapshotSkipsProbe() throws Exception {

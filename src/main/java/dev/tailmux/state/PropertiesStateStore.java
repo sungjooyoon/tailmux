@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
 
 public final class PropertiesStateStore {
@@ -42,14 +41,14 @@ public final class PropertiesStateStore {
         }
     }
 
-    public Optional<Workspace> loadWorkspace(String name) {
+    public Workspace loadWorkspace(String name) {
         Path path = stateDir.resolve("workspaces").resolve(name + ".properties");
         if (!Files.isRegularFile(path)) {
-            return Optional.empty();
+            return null;
         }
         try {
             Properties p = load(path);
-            return Optional.of(new Workspace(
+            return new Workspace(
                     WorkspaceName.parse(p.getProperty("name", name)),
                     NodeId.parse(required(p, "home")),
                     p.getProperty("session", name),
@@ -57,7 +56,7 @@ public final class PropertiesStateStore {
                     Instant.parse(required(p, "createdAt")),
                     Instant.parse(required(p, "lastSeenAt")),
                     p.getProperty("transport", "ssh")
-            ));
+            );
         } catch (TailmuxException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -82,10 +81,10 @@ public final class PropertiesStateStore {
         write(stateDir.resolve("workspaces").resolve(name + ".properties"), p);
     }
 
-    public Optional<NodeSnapshot> loadSnapshot(NodeId node) {
+    public NodeSnapshot loadSnapshot(NodeId node) {
         Path path = stateDir.resolve("snapshots").resolve(node.value() + ".properties");
         if (!Files.isRegularFile(path)) {
-            return Optional.empty();
+            return null;
         }
         try {
             Properties p = load(path);
@@ -129,7 +128,7 @@ public final class PropertiesStateStore {
                 ));
             }
             NodeStatus status = NodeStatus.valueOf(p.getProperty("status", "ONLINE"));
-            return Optional.of(new NodeSnapshot(node, status, Instant.parse(required(p, "lastSeenAt")), sessions));
+            return new NodeSnapshot(node, status, Instant.parse(required(p, "lastSeenAt")), sessions);
         } catch (TailmuxException e) {
             throw e;
         } catch (RuntimeException e) {
