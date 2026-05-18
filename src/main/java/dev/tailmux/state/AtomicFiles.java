@@ -35,11 +35,17 @@ public final class AtomicFiles {
     private static String render(Properties properties) {
         ArrayList<String> names = new ArrayList<>(properties.stringPropertyNames());
         Collections.sort(names);
-        StringBuilder out = new StringBuilder();
+        StringBuilder out = new StringBuilder(renderLength(properties, names));
         for (String name : names) {
             out.append(escape(name)).append('=').append(escape(properties.getProperty(name))).append('\n');
         }
         return out.toString();
+    }
+
+    private static int renderLength(Properties properties, ArrayList<String> names) {
+        int length = 0;
+        for (String name : names) length += name.length() + properties.getProperty(name).length() + 2;
+        return length;
     }
 
     private static String escape(String value) {

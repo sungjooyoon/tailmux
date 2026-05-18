@@ -167,6 +167,7 @@ final class StateStoreTests extends TestMain {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/AtomicFiles.java"));
         check(!source.contains(".replace("), "atomic property escaping avoids replace chains");
         check(!source.contains("String replacement"), "atomic property escaping avoids per-character replacement strings");
+        check(!source.contains("StringBuilder out = new StringBuilder();"), "atomic property renderer pre-sizes output");
     }
 
     private void testSnapshotLoadListsUseStoredCounts() throws Exception {
