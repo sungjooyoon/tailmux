@@ -129,6 +129,7 @@ final class DoctorTests extends TestMain {
         check(!source.contains("stdout().toLowerCase()"), "doctor ping reachability avoids lowercasing command output");
         check(!source.contains("stdout().isBlank()"), "doctor resolver output uses ascii text presence checks");
         check(count(source, "newVirtualThreadPerTaskExecutor") == 1, "doctor shares one concurrent node runner");
+        check(!source.contains(".forEach(console::out)"), "doctor renders diagnostics with direct loops");
     }
 
     private void testDoctorChecksRemoteNodesConcurrently() throws Exception {

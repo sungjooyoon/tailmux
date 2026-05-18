@@ -47,7 +47,7 @@ final class DoctorCommand {
         console.out("OK    state dir writable");
 
         for (NodeDoctorResult result : checkRemoteNodes()) {
-            result.lines().forEach(console::out);
+            for (String line : result.lines()) console.out(line);
             failed = failed || result.failed();
         }
         return failed ? ExitCodes.REMOTE_EXECUTION_ERROR : ExitCodes.SUCCESS;
@@ -103,7 +103,7 @@ final class DoctorCommand {
         boolean hasDscacheutil = localProcess.commandExists("dscacheutil");
         boolean hasDig = localProcess.commandExists("dig");
         for (NodeDoctorResult result : checkNetworkNodes(hasDscacheutil, hasDig)) {
-            result.lines().forEach(console::out);
+            for (String line : result.lines()) console.out(line);
             failed = failed || result.failed();
         }
         return failed ? ExitCodes.REMOTE_EXECUTION_ERROR : ExitCodes.SUCCESS;
