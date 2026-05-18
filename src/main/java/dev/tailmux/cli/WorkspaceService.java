@@ -110,13 +110,13 @@ final class WorkspaceService {
     private int attachSelector(Selector selector) throws IOException, InterruptedException {
         NodeConfig node = config.node(selector.node());
         String socket = resolveSessionSocket(node, selector.session());
-        if (selector.pane().isPresent()) {
-            ExecResult select = remote.execute(node, TmuxCommands.selectWindowAndPane(socket, selector.session(), selector.window().orElseThrow(), selector.pane().get()));
+        if (selector.hasPane()) {
+            ExecResult select = remote.execute(node, TmuxCommands.selectWindowAndPane(socket, selector.session(), selector.windowIndex(), selector.paneIndex()));
             if (!select.ok()) {
                 throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": could not select tmux pane: " + select.errorText());
             }
-        } else if (selector.window().isPresent()) {
-            ExecResult select = remote.execute(node, TmuxCommands.selectWindow(socket, selector.session(), selector.window().get()));
+        } else if (selector.hasWindow()) {
+            ExecResult select = remote.execute(node, TmuxCommands.selectWindow(socket, selector.session(), selector.windowIndex()));
             if (!select.ok()) {
                 throw new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": could not select tmux window: " + select.errorText());
             }

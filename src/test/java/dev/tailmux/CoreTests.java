@@ -43,14 +43,14 @@ final class CoreTests extends TestMain {
         Selector selector = Selector.parse("office-a:work");
         check(selector.node().value().equals("office-a"), "selector node");
         check(selector.session().equals("work"), "selector session");
-        check(selector.window().isEmpty(), "selector without window");
+        check(!selector.hasWindow(), "selector without window");
 
         Selector window = Selector.parse("office-a:work.2");
-        check(window.window().orElseThrow() == 2, "selector window");
+        check(window.windowIndex() == 2, "selector window");
 
         Selector pane = Selector.parse("office-a:work.2.1");
-        check(pane.window().orElseThrow() == 2, "selector pane window");
-        check(pane.pane().orElseThrow() == 1, "selector pane");
+        check(pane.windowIndex() == 2, "selector pane window");
+        check(pane.paneIndex() == 1, "selector pane");
 
         expectThrows(IllegalArgumentException.class, () -> Selector.parse("work"), "selector requires node");
         expectThrows(IllegalArgumentException.class, () -> Selector.parse("office-a:work.two"), "selector rejects nonnumeric window");
@@ -70,6 +70,7 @@ final class CoreTests extends TestMain {
     private void testSelectorIndexParsingAvoidsSubstrings() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/core/Selector.java"));
         check(!source.contains("parseIndex(target.substring"), "selector parses numeric ranges without substring allocation");
+        check(!source.contains("Optional<") && !source.contains("Optional.of"), "selector stores primitive indexes");
     }
 
     private void testShellQuoting() {
