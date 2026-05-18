@@ -37,25 +37,33 @@ final class DiscoveryService {
     }
 
     List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows) {
-        return snapshots(discoverNodes(nodes, includeWindows));
+        return discoverSnapshots(nodes, includeWindows, includeWindows);
     }
 
     List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
-        return snapshots(discoverNodes(nodes, includeWindows, includePanes));
+        return discoverSnapshots(nodes, includeWindows, includePanes);
     }
 
     List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows) {
         return discoverNodes(nodes, includeWindows, includeWindows);
     }
 
+    private List<NodeSnapshot> discoverSnapshots(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
+        return runNodes(nodes, node -> discoverOrCached(node, includeWindows, includePanes));
+    }
+
     private List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
+        return runNodes(nodes, node -> new DiscoveredNode(node, discoverOrCached(node, includeWindows, includePanes)));
+    }
+
+    private <T> List<T> runNodes(List<NodeConfig> nodes, NodeTask<T> task) {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            ArrayList<Future<DiscoveredNode>> futures = new ArrayList<>(nodes.size());
+            ArrayList<Future<T>> futures = new ArrayList<>(nodes.size());
             for (NodeConfig node : nodes) {
-                futures.add(executor.submit(() -> new DiscoveredNode(node, discoverOrCached(node, includeWindows, includePanes))));
+                futures.add(executor.submit(() -> task.run(node)));
             }
-            ArrayList<DiscoveredNode> discovered = new ArrayList<>(futures.size());
-            for (Future<DiscoveredNode> future : futures) {
+            ArrayList<T> discovered = new ArrayList<>(futures.size());
+            for (Future<T> future : futures) {
                 try {
                     discovered.add(future.get());
                 } catch (InterruptedException e) {
@@ -68,12 +76,6 @@ final class DiscoveryService {
             }
             return discovered;
         }
-    }
-
-    private List<NodeSnapshot> snapshots(List<DiscoveredNode> discovered) {
-        ArrayList<NodeSnapshot> snapshots = new ArrayList<>(discovered.size());
-        for (DiscoveredNode node : discovered) snapshots.add(node.snapshot());
-        return snapshots;
     }
 
     private NodeSnapshot discoverOrCached(NodeConfig node, boolean includeWindows, boolean includePanes) {
@@ -140,5 +142,10 @@ final class DiscoveryService {
         if (cached.status() != NodeStatus.SSH_FAILED && cached.status() != NodeStatus.OFFLINE) return false;
         Duration age = Duration.between(cached.lastSeenAt(), clock.instant());
         return !age.isNegative() && age.compareTo(RECENT_OFFLINE_TTL) <= 0;
+    }
+
+    @FunctionalInterface
+    private interface NodeTask<T> {
+        T run(NodeConfig node);
     }
 }

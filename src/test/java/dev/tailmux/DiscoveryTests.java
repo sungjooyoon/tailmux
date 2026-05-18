@@ -30,6 +30,7 @@ final class DiscoveryTests extends TestMain {
         testDiscoveryWorkerFailureIsReported();
         testDiscoveryLoadsCachedSnapshotOnce();
         testDiscoveryDoesNotCopyInternalResults();
+        testSnapshotDiscoveryAvoidsWrapperProjection();
         testDiscoveryFallbackAvoidsOptionalPipelines();
         testFailureSnapshotReadsCacheOnce();
         testDiscoveryInternalCacheIsNullable();
@@ -175,6 +176,11 @@ final class DiscoveryTests extends TestMain {
     private void testDiscoveryDoesNotCopyInternalResults() throws Exception {
         String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DiscoveryService.java"));
         check(!source.contains("List.copyOf(discovered)"), "discovery does not copy internal parallel results before immediate consumption");
+    }
+
+    private void testSnapshotDiscoveryAvoidsWrapperProjection() throws Exception {
+        String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/dev/tailmux/cli/DiscoveryService.java"));
+        check(!source.contains("snapshots(discoverNodes(") && !source.contains("private List<NodeSnapshot> snapshots"), "snapshot discovery does not allocate DiscoveredNode wrappers");
     }
 
     private void testDiscoveryFallbackAvoidsOptionalPipelines() throws Exception {
