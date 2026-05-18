@@ -89,6 +89,7 @@ final class CoreTests extends TestMain {
     private void testShellJoinKeepsOnlyVarargsApi() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/exec/PosixShell.java"));
         check(!source.contains("join(List<String>"), "shell join exposes only varargs API used by production");
+        check(!source.contains("new StringBuilder()"), "shell join pre-sizes command builder");
     }
 
     private void testLauncherArgStripAvoidsPathReplace() throws Exception {

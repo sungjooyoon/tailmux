@@ -25,9 +25,15 @@ public final class PosixShell {
     }
 
     public static String join(String... args) {
-        StringBuilder builder = new StringBuilder();
+        StringBuilder builder = new StringBuilder(commandLength(args));
         for (String arg : args) append(builder, arg);
         return builder.toString();
+    }
+
+    private static int commandLength(String[] args) {
+        int length = args.length == 0 ? 0 : args.length - 1;
+        for (String arg : args) length += arg.length() + 2;
+        return length;
     }
 
     private static void append(StringBuilder builder, String arg) {
