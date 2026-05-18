@@ -5,11 +5,24 @@ public final class Ascii {
     }
 
     public static boolean containsIgnoreCase(String text, String needle) {
+        if (needle.isEmpty()) return true;
         int end = text.length() - needle.length();
+        char first = lower(needle.charAt(0));
         for (int i = 0; i <= end; i++) {
-            if (text.regionMatches(true, i, needle, 0, needle.length())) return true;
+            if (lower(text.charAt(i)) == first && matchesIgnoreCase(text, i, needle)) return true;
         }
         return false;
+    }
+
+    private static boolean matchesIgnoreCase(String text, int start, String needle) {
+        for (int i = 1; i < needle.length(); i++) {
+            if (lower(text.charAt(start + i)) != lower(needle.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    private static char lower(char c) {
+        return c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
     }
 
     public static String trim(String value) {

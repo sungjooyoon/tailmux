@@ -153,9 +153,12 @@ final class CoreTests extends TestMain {
     }
 
     private void testClassifiersShareAsciiScanner() throws Exception {
+        check(dev.tailmux.text.Ascii.containsIgnoreCase("Host Key Verification Failed", "host key verification failed"), "ascii scanner matches case-insensitive diagnostics");
         String tmux = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxFailure.java"));
         String doctor = Files.readString(Path.of("src/main/java/dev/tailmux/cli/DoctorCommand.java"));
+        String ascii = Files.readString(Path.of("src/main/java/dev/tailmux/text/Ascii.java"));
         check(tmux.contains("Ascii.containsIgnoreCase") && doctor.contains("Ascii.containsIgnoreCase"), "diagnostic classifiers share ascii scanner");
         check(!tmux.contains("regionMatches(true") && !doctor.contains("regionMatches(true"), "diagnostic classifiers do not duplicate scanner loops");
+        check(!ascii.contains("regionMatches(true"), "ascii scanner uses direct char folding");
     }
 }
