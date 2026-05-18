@@ -11,8 +11,6 @@ import dev.tailmux.text.Ascii;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
 
 public final class TmuxParser {
     private static final char SEP_CHAR = '\u001F';
@@ -27,7 +25,8 @@ public final class TmuxParser {
     public static NodeSnapshot parse(NodeId node, String socket, String sessionsOutput, String windowsOutput, String panesOutput, Instant seenAt) {
         ArrayList<MutableSession> sessions = new ArrayList<>();
         boolean hasFullPaneRows = Ascii.hasText(panesOutput);
-        for (Row row : rows(sessionsOutput)) {
+        Rows sessionRows = rows(sessionsOutput);
+        for (Row row; (row = sessionRows.next()) != null; ) {
             String name = required(row, "session");
             String id = required(row, "session");
             String attached = required(row, "session");
@@ -44,7 +43,8 @@ public final class TmuxParser {
             ));
         }
 
-        for (Row row : rows(windowsOutput)) {
+        Rows windowRows = rows(windowsOutput);
+        for (Row row; (row = windowRows.next()) != null; ) {
             String sessionName = required(row, "window");
             int index = parseInt(required(row, "window"));
             String id = required(row, "window");
@@ -61,7 +61,8 @@ public final class TmuxParser {
             }
         }
 
-        for (Row row : rows(panesOutput)) {
+        Rows paneRows = rows(panesOutput);
+        for (Row row; (row = paneRows.next()) != null; ) {
             String sessionName = required(row, "pane");
             int windowIndex = parseInt(required(row, "pane"));
             int paneIndex = parseInt(required(row, "pane"));
@@ -108,47 +109,8 @@ public final class TmuxParser {
         return TmuxFailure.noServer(result);
     }
 
-    private static Iterable<Row> rows(String output) {
-        if (output == null || output.isEmpty()) return () -> java.util.Collections.emptyIterator();
-        return () -> new Iterator<>() {
-            private int start;
-            private Row next;
-            private boolean ready;
-
-            @Override
-            public boolean hasNext() {
-                prepare();
-                return next != null;
-            }
-
-            @Override
-            public Row next() {
-                prepare();
-                if (next == null) throw new NoSuchElementException();
-                Row row = next;
-                next = null;
-                ready = false;
-                return row;
-            }
-
-            private void prepare() {
-                if (ready) return;
-                ready = true;
-                while (start <= output.length()) {
-                    int rawEnd = output.indexOf('\n', start);
-                    if (rawEnd < 0) rawEnd = output.length();
-                    int end = rawEnd > start && output.charAt(rawEnd - 1) == '\r' ? rawEnd - 1 : rawEnd;
-                    int lineStart = start;
-                    start = rawEnd + 1;
-                    if (!blank(output, lineStart, end)) {
-                        next = new Row(output, lineStart, end);
-                        return;
-                    }
-                    if (rawEnd == output.length()) break;
-                }
-                next = null;
-            }
-        };
+    private static Rows rows(String output) {
+        return new Rows(output == null ? "" : output);
     }
 
     private static boolean blank(String value, int start, int end) {
@@ -188,6 +150,27 @@ public final class TmuxParser {
             printable.append(c == SEP_CHAR ? '|' : c);
         }
         return printable.toString();
+    }
+
+    private static final class Rows {
+        private final String source;
+        private int start;
+
+        private Rows(String source) {
+            this.source = source;
+        }
+
+        private Row next() {
+            while (start < source.length()) {
+                int rawEnd = source.indexOf('\n', start);
+                if (rawEnd < 0) rawEnd = source.length();
+                int end = rawEnd > start && source.charAt(rawEnd - 1) == '\r' ? rawEnd - 1 : rawEnd;
+                int lineStart = start;
+                start = rawEnd < source.length() ? rawEnd + 1 : source.length();
+                if (!blank(source, lineStart, end)) return new Row(source, lineStart, end);
+            }
+            return null;
+        }
     }
 
     private static final class Row {

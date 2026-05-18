@@ -152,6 +152,8 @@ final class TmuxParserTests {
         tests.check(!source.contains("windowKey("), "tmux parser links panes without synthetic string keys");
         tests.check(!source.contains("Map<String, MutableWindow>"), "tmux parser avoids a second window lookup map");
         tests.check(!source.contains("LinkedHashMap") && !source.contains("Map<String, MutableSession>"), "tmux parser keeps session order without a lookup map");
+        tests.check(!source.contains("Iterator<") && !source.contains("NoSuchElementException") && !source.contains("Iterable<Row>"), "tmux parser uses direct row cursor");
+        tests.check(!source.contains("for (Row row : rows("), "tmux parser does not allocate iterable row scanners");
         tests.check(!source.contains("String rest = output.substring"), "tmux discovery split avoids rest substring allocation");
         tests.check(!source.contains("String sessions = output.substring"), "tmux discovery split trims sessions by range");
         tests.check(!source.contains("String windows = rest.substring"), "tmux discovery split trims windows by range");
