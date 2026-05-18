@@ -128,6 +128,7 @@ final class DoctorTests extends TestMain {
         check(folds == 0, "doctor diagnostic classification avoids folded string allocation");
         check(!source.contains("stdout().toLowerCase()"), "doctor ping reachability avoids lowercasing command output");
         check(!source.contains("stdout().isBlank()"), "doctor resolver output uses ascii text presence checks");
+        check(count(source, "newVirtualThreadPerTaskExecutor") == 1, "doctor shares one concurrent node runner");
     }
 
     private void testDoctorChecksRemoteNodesConcurrently() throws Exception {

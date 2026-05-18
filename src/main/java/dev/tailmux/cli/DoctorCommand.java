@@ -54,21 +54,7 @@ final class DoctorCommand {
     }
 
     private List<NodeDoctorResult> checkRemoteNodes() throws InterruptedException {
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<NodeConfig> nodes = config.nodeConfigs();
-            ArrayList<Future<NodeDoctorResult>> futures = new ArrayList<>(nodes.size());
-            for (NodeConfig node : nodes) futures.add(executor.submit(() -> checkRemoteNode(node)));
-            ArrayList<NodeDoctorResult> results = new ArrayList<>(futures.size());
-            for (Future<NodeDoctorResult> future : futures) {
-                try {
-                    results.add(future.get());
-                } catch (ExecutionException e) {
-                    Throwable cause = e.getCause() == null ? e : e.getCause();
-                    results.add(new NodeDoctorResult(true, List.of("FAIL  doctor remote check failed: " + cause.getMessage())));
-                }
-            }
-            return results;
-        }
+        return checkNodes("doctor remote check", this::checkRemoteNode);
     }
 
     private NodeDoctorResult checkRemoteNode(NodeConfig node) throws IOException, InterruptedException {
@@ -124,17 +110,21 @@ final class DoctorCommand {
     }
 
     private List<NodeDoctorResult> checkNetworkNodes(boolean hasDscacheutil, boolean hasDig) throws InterruptedException {
+        return checkNodes("network diagnostic", node -> networkNode(node, hasDscacheutil, hasDig));
+    }
+
+    private List<NodeDoctorResult> checkNodes(String label, NodeCheck check) throws InterruptedException {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<NodeConfig> nodes = config.nodeConfigs();
             ArrayList<Future<NodeDoctorResult>> futures = new ArrayList<>(nodes.size());
-            for (NodeConfig node : nodes) futures.add(executor.submit(() -> networkNode(node, hasDscacheutil, hasDig)));
+            for (NodeConfig node : nodes) futures.add(executor.submit(() -> check.run(node)));
             ArrayList<NodeDoctorResult> results = new ArrayList<>(futures.size());
             for (Future<NodeDoctorResult> future : futures) {
                 try {
                     results.add(future.get());
                 } catch (ExecutionException e) {
                     Throwable cause = e.getCause() == null ? e : e.getCause();
-                    results.add(new NodeDoctorResult(true, List.of("FAIL  network diagnostic failed: " + cause.getMessage())));
+                    results.add(new NodeDoctorResult(true, List.of("FAIL  " + label + " failed: " + cause.getMessage())));
                 }
             }
             return results;
@@ -238,6 +228,11 @@ final class DoctorCommand {
     }
 
     private record NodeDoctorResult(boolean failed, List<String> lines) {
+    }
+
+    @FunctionalInterface
+    private interface NodeCheck {
+        NodeDoctorResult run(NodeConfig node) throws IOException, InterruptedException;
     }
 
     private enum SshFailure {
