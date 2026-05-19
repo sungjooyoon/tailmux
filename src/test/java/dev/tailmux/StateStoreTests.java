@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 final class StateStoreTests extends TestMain {
     @Override
@@ -33,6 +32,7 @@ final class StateStoreTests extends TestMain {
         testEventLogUsesFixedFieldOrder();
         testStateRequiredFieldsUseAsciiChecks();
         testEventLogSupportsPairFastPath();
+        testEventLogHasSinglePairApi();
         testRuntimeEventLoggingAvoidsMapFactories();
     }
 
@@ -138,7 +138,10 @@ final class StateStoreTests extends TestMain {
         Path home = tempDir();
         PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
         store.appendEvent(Instant.parse("2026-05-15T19:02:13Z"), "diagnostic",
-                Map.of("command", "doctor", "node", "office-a\nbad", "stdout", "secret output", "token", "secret"));
+                "command", "doctor",
+                "node", "office-a\nbad",
+                "stdout", "secret output",
+                "token", "secret");
 
         String log = Files.readString(home.resolve(".tailmux/state/events/2026-05-15.log"));
 
@@ -215,6 +218,11 @@ final class StateStoreTests extends TestMain {
         check(log.contains("event=command"), "pair event log writes event type");
         check(log.contains("command=ls"), "pair event log writes approved field");
         check(!log.contains("secret"), "pair event log redacts unapproved field");
+    }
+
+    private void testEventLogHasSinglePairApi() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(!source.contains("java.util.Map") && !source.contains("Map<String, String>") && !source.contains("fieldMap"), "event log exposes only pair fast path");
     }
 
     private void testRuntimeEventLoggingAvoidsMapFactories() throws Exception {

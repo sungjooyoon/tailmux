@@ -20,7 +20,6 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 public final class PropertiesStateStore {
@@ -179,18 +178,10 @@ public final class PropertiesStateStore {
         write(stateDir.resolve("snapshots").resolve(snapshot.node().value() + ".properties"), p);
     }
 
-    public void appendEvent(Instant at, String event, Map<String, String> fields) {
-        appendEvent(at, event, fields, null);
-    }
-
     public void appendEvent(Instant at, String event, String... fields) {
         if ((fields.length & 1) != 0) {
             throw new IllegalArgumentException("event fields must be key/value pairs");
         }
-        appendEvent(at, event, null, fields);
-    }
-
-    private void appendEvent(Instant at, String event, Map<String, String> fieldMap, String[] fieldPairs) {
         try {
             Files.createDirectories(stateDir.resolve("events"));
             String timestamp = at.toString();
@@ -199,7 +190,7 @@ public final class PropertiesStateStore {
                     .append(" event=")
                     .append(clean(event));
             for (String name : EVENT_FIELDS) {
-                String value = fieldMap == null ? pairValue(fieldPairs, name) : fieldMap.get(name);
+                String value = pairValue(fields, name);
                 if (value == null) continue;
                 line.append(' ').append(name).append('=').append(clean(value));
             }
