@@ -55,7 +55,7 @@ final class ExecutionTests extends TestMain {
         p.setProperty("tailmux.home.pool", "office-a");
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
         FakeLocalProcess process = new FakeLocalProcess();
-        TailscaleSshExecutor executor = new TailscaleSshExecutor(config, process);
+        TailscaleSshExecutor executor = new TailscaleSshExecutor(process);
 
         executor.execute(config.node(dev.tailmux.core.NodeId.parse("office-a")), "echo ok");
         executor.attachInteractive(config.node(dev.tailmux.core.NodeId.parse("office-a")), "tmux attach");

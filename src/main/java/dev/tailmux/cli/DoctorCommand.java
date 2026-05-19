@@ -67,7 +67,7 @@ final class DoctorCommand {
         if (!tmux.ok()) {
             lines.add("FAIL  " + node.id().value() + " remote tmux missing");
             lines.add("Try:");
-            lines.add("  tailscale ssh " + config.sshTarget(node) + " 'command -v tmux'");
+            lines.add("  tailscale ssh " + node.sshTarget() + " 'command -v tmux'");
             return new NodeDoctorResult(true, lines);
         }
         lines.add("OK    " + node.id().value() + " remote tmux found");
@@ -172,7 +172,7 @@ final class DoctorCommand {
                     "FAIL  " + node.id().value() + " magicdns resolution failed: " + error,
                     "Try:",
                     "  tailmux doctor --network",
-                    "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+                    "  tailscale ssh " + node.sshTarget() + " 'echo ok'");
             case TIMEOUT -> List.of(
                     "FAIL  " + node.id().value() + " tailscale ssh timed out: " + error,
                     "Try:",
@@ -180,15 +180,15 @@ final class DoctorCommand {
             case HOST_KEY -> List.of(
                     "FAIL  " + node.id().value() + " tailscale ssh host key verification failed: " + error,
                     "Try:",
-                    "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+                    "  tailscale ssh " + node.sshTarget() + " 'echo ok'");
             case AUTH -> List.of(
                     "FAIL  " + node.id().value() + " tailscale ssh auth failed: " + error,
                     "Try:",
-                    "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+                    "  tailscale ssh " + node.sshTarget() + " 'echo ok'");
             case OTHER -> List.of(
                     "FAIL  " + node.id().value() + " tailscale ssh failed: " + error,
                     "Try:",
-                    "  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+                    "  tailscale ssh " + node.sshTarget() + " 'echo ok'");
         };
     }
 

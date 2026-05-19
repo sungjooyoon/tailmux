@@ -28,7 +28,7 @@ public final class Main {
             CommandRouter router = new CommandRouter(
                     config,
                     store,
-                    new TailscaleSshExecutor(config, process),
+                    new TailscaleSshExecutor(process),
                     Clock.systemUTC(),
                     console,
                     process

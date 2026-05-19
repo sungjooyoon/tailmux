@@ -75,10 +75,6 @@ public final class TailmuxConfig {
         throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: unknown node " + id.value());
     }
 
-    public String sshTarget(NodeConfig node) {
-        return node.sshTarget();
-    }
-
     private static String buildSshTarget(String globalUser, String nodeUser, String host) {
         if (!nodeUser.isEmpty()) return nodeUser + "@" + Ascii.trim(host);
         if (!globalUser.isEmpty()) return globalUser + "@" + Ascii.trim(host);

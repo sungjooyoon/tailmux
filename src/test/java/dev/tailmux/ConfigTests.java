@@ -54,8 +54,8 @@ final class ConfigTests extends TestMain {
 
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
 
-        check(config.sshTarget(config.node(NodeId.parse("sungjoos-mac-pro"))).equals("sungjooyoon@sungjoos-mac-pro"), "global user applies by default");
-        check(config.sshTarget(config.node(NodeId.parse("sungjoos-mac-studio"))).equals("sjy2@sungjoos-mac-studio"), "node user overrides global user");
+        check(config.node(NodeId.parse("sungjoos-mac-pro")).sshTarget().equals("sungjooyoon@sungjoos-mac-pro"), "global user applies by default");
+        check(config.node(NodeId.parse("sungjoos-mac-studio")).sshTarget().equals("sjy2@sungjoos-mac-studio"), "node user overrides global user");
     }
 
     private void testNodeConfigsAreCached() {
@@ -69,12 +69,13 @@ final class ConfigTests extends TestMain {
         p.setProperty("tailmux.home.pool", "office-a");
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
 
-        check(config.sshTarget(config.node(NodeId.parse("office-a"))) == config.sshTarget(config.node(NodeId.parse("office-a"))), "ssh target string is cached");
+        check(config.node(NodeId.parse("office-a")).sshTarget() == config.node(NodeId.parse("office-a")).sshTarget(), "ssh target string is cached");
     }
 
     private void testSshTargetBuildAvoidsOptionalMap() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
         check(!source.contains("user.map("), "ssh target construction avoids Optional.map allocation");
+        check(!source.contains("public String sshTarget"), "config does not wrap node ssh target accessor");
     }
 
     private void testDefaultSocketListIsCanonical() throws Exception {

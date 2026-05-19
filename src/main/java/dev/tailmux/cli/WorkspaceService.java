@@ -207,7 +207,7 @@ final class WorkspaceService {
     private TailmuxException classifyTmuxCommandFailure(NodeConfig node, String action, ExecResult result, TmuxFailure.Kind failure) {
         if (failure == TmuxFailure.Kind.REMOTE_EXECUTION) {
             return new TailmuxException(ExitCodes.REMOTE_EXECUTION_ERROR,
-                    "FAIL " + node.id().value() + ": tailscale ssh could not execute remote command.\nTry:\n  tailscale ssh " + config.sshTarget(node) + " 'echo ok'");
+                    "FAIL " + node.id().value() + ": tailscale ssh could not execute remote command.\nTry:\n  tailscale ssh " + node.sshTarget() + " 'echo ok'");
         }
         if (failure == TmuxFailure.Kind.MISSING_BINARY) {
             return new TailmuxException(ExitCodes.TMUX_ERROR, "FAIL " + node.id().value() + ": remote tmux not found");
