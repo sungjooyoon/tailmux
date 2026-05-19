@@ -66,7 +66,7 @@ final class WorkspaceService {
         NodeConfig defaultHealthy = null;
         NodeConfig explicitHealthy = explicitHome == null ? null : config.node(explicitHome);
         boolean explicitHomeHealthy = false;
-        for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs(), false)) {
+        for (DiscoveredNode discovered : discovery.discoverNodes(config.nodeConfigs())) {
             NodeSnapshot snapshot = discovered.snapshot();
             NodeConfig node = discovered.node();
             NodeStatus status = snapshot.status();

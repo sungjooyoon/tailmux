@@ -105,7 +105,7 @@ public final class CommandRouter {
     }
 
     private int nodes() {
-        Renderers.renderNodes(console, config, discovery.discoverAll(config.nodeConfigs(), false), clock);
+        Renderers.renderNodes(console, config, discovery.discoverAll(config.nodeConfigs(), false, false), clock);
         return ExitCodes.SUCCESS;
     }
 

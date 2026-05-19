@@ -36,24 +36,12 @@ final class DiscoveryService {
         this.clock = clock;
     }
 
-    List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows) {
-        return discoverSnapshots(nodes, includeWindows, includeWindows);
-    }
-
     List<NodeSnapshot> discoverAll(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
-        return discoverSnapshots(nodes, includeWindows, includePanes);
-    }
-
-    List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows) {
-        return discoverNodes(nodes, includeWindows, includeWindows);
-    }
-
-    private List<NodeSnapshot> discoverSnapshots(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
         return runNodes(nodes, node -> discoverOrCached(node, includeWindows, includePanes));
     }
 
-    private List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes, boolean includeWindows, boolean includePanes) {
-        return runNodes(nodes, node -> new DiscoveredNode(node, discoverOrCached(node, includeWindows, includePanes)));
+    List<DiscoveredNode> discoverNodes(List<NodeConfig> nodes) {
+        return runNodes(nodes, node -> new DiscoveredNode(node, discoverOrCached(node, false, false)));
     }
 
     private <T> List<T> runNodes(List<NodeConfig> nodes, NodeTask<T> task) {
