@@ -271,8 +271,5 @@ public final class TmuxParser {
     }
 
     public record DiscoveryOutput(String sessions, String windows, String panes) {
-        public DiscoveryOutput(String sessions, String windows) {
-            this(sessions, windows, "");
-        }
     }
 }
