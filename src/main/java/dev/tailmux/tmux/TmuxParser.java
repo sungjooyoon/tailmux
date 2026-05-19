@@ -6,7 +6,6 @@ import dev.tailmux.core.NodeStatus;
 import dev.tailmux.core.TmuxSession;
 import dev.tailmux.core.TmuxPane;
 import dev.tailmux.core.TmuxWindow;
-import dev.tailmux.exec.ExecResult;
 import dev.tailmux.text.Ascii;
 
 import java.time.Instant;
@@ -103,10 +102,6 @@ public final class TmuxParser {
                 Ascii.trimRight(output, 0, marker),
                 Ascii.trim(output, windowsStart, paneMarker),
                 Ascii.trimLeft(output, paneMarker + TmuxCommands.DISCOVERY_PANES_MARKER.length(), output.length()));
-    }
-
-    public static boolean isNoServer(ExecResult result) {
-        return TmuxFailure.noServer(result);
     }
 
     private static Rows rows(String output) {

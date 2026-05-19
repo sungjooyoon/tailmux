@@ -104,7 +104,7 @@ final class CoreTests extends TestMain {
     }
 
     private void testTmuxNoServerClassifierAcceptsTmuxPhrasing() {
-        check(TmuxFailure.noServer(ExecResult.failure(1, "", "failed to connect to server")), "classifies tmux failed-to-connect as no server");
+        check(TmuxFailure.classify(ExecResult.failure(1, "", "failed to connect to server")) == TmuxFailure.Kind.NO_SERVER, "classifies tmux failed-to-connect as no server");
     }
 
     private void testTmuxFailureClassifiesWithoutTextFold() throws Exception {
@@ -114,6 +114,7 @@ final class CoreTests extends TestMain {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxFailure.java"));
         check(!source.contains("toLowerCase"), "tmux failure classification avoids folded string allocation");
         check(!source.contains("stderr() +"), "tmux failure classification avoids joining stdout and stderr");
+        check(!source.contains("boolean noServer") && !source.contains("boolean missingBinary"), "tmux failure exposes only classifier API");
     }
 
     private void testTmuxDiscoveryShortCircuits() {

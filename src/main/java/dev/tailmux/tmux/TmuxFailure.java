@@ -36,14 +36,6 @@ public final class TmuxFailure {
         return Ascii.containsIgnoreCase(result.stderr(), needle) || Ascii.containsIgnoreCase(result.stdout(), needle);
     }
 
-    public static boolean noServer(ExecResult result) {
-        return classify(result) == Kind.NO_SERVER;
-    }
-
-    public static boolean missingBinary(ExecResult result) {
-        return classify(result) == Kind.MISSING_BINARY;
-    }
-
     public static boolean remoteExecution(ExecResult result) {
         return result.exitCode() == 255 || result.exitCode() == 124;
     }
