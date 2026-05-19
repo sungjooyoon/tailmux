@@ -42,6 +42,7 @@ public final class TmuxParser {
             ));
         }
 
+        MutableSession windowSession = null;
         Rows windowRows = rows(windowsOutput);
         for (Row row; (row = windowRows.next()) != null; ) {
             String sessionName = required(row, "window");
@@ -49,9 +50,10 @@ public final class TmuxParser {
             String id = required(row, "window");
             String name = required(row, "window");
             boolean active = "1".equals(required(row, "window"));
-            MutableSession session = session(sessions, sessionName);
+            MutableSession session = session(windowSession, sessions, sessionName);
             // tmux can report rows from stale/racing state; keep discovery useful by ignoring rows whose parent is absent.
             if (session != null) {
+                windowSession = session;
                 MutableWindow window = new MutableWindow(index, id, name, active);
                 if (!hasFullPaneRows && row.hasFields(4)) {
                     window.panes.add(new TmuxPane(parseInt(row.next()), row.next(), row.next(), row.next(), true));
@@ -60,6 +62,8 @@ public final class TmuxParser {
             }
         }
 
+        MutableSession paneSession = null;
+        MutableWindow paneWindow = null;
         Rows paneRows = rows(panesOutput);
         for (Row row; (row = paneRows.next()) != null; ) {
             String sessionName = required(row, "pane");
@@ -69,10 +73,12 @@ public final class TmuxParser {
             String cwd = required(row, "pane");
             String command = required(row, "pane");
             boolean active = "1".equals(required(row, "pane"));
-            MutableSession session = session(sessions, sessionName);
-            MutableWindow window = session == null ? null : session.window(windowIndex);
+            MutableSession session = session(paneSession, sessions, sessionName);
+            MutableWindow window = session == null ? null : session.window(paneWindow, windowIndex);
             // Same rule as windows: orphan pane rows are ignored, not promoted into phantom sessions.
             if (window != null) {
+                paneSession = session;
+                paneWindow = window;
                 window.panes.add(new TmuxPane(paneIndex, id, cwd, command, active));
             }
         }
@@ -82,7 +88,8 @@ public final class TmuxParser {
         return new NodeSnapshot(node, NodeStatus.ONLINE, seenAt, parsed);
     }
 
-    private static MutableSession session(ArrayList<MutableSession> sessions, String name) {
+    private static MutableSession session(MutableSession cached, ArrayList<MutableSession> sessions, String name) {
+        if (cached != null && cached.name.equals(name)) return cached;
         for (MutableSession session : sessions) {
             if (session.name.equals(name)) return session;
         }
@@ -254,7 +261,8 @@ public final class TmuxParser {
             return new TmuxSession(socket, name, id, attached, created, activity, parsedWindows, windowCount);
         }
 
-        private MutableWindow window(int index) {
+        private MutableWindow window(MutableWindow cached, int index) {
+            if (cached != null && cached.index == index) return cached;
             for (MutableWindow window : windows) {
                 if (window.index == index) return window;
             }
