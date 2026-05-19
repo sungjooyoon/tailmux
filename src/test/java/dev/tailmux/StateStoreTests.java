@@ -39,7 +39,7 @@ final class StateStoreTests extends TestMain {
     private void testStateRoundTrip() throws Exception {
         Path home = tempDir();
         PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
-        store.saveWorkspace("work", NodeId.parse("office-a"), "work", Instant.parse("2026-05-15T18:12:00Z"), Instant.parse("2026-05-15T19:02:13Z"));
+        store.saveWorkspace("work", NodeId.parse("office-a"), "work", "default", Instant.parse("2026-05-15T18:12:00Z"), Instant.parse("2026-05-15T19:02:13Z"));
 
         var loaded = store.loadWorkspace("work");
         check(loaded.name().value().equals("work"), "workspace name round-trip");

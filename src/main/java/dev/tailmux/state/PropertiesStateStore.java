@@ -63,10 +63,6 @@ public final class PropertiesStateStore {
         }
     }
 
-    public void saveWorkspace(String name, NodeId home, String session, Instant createdAt, Instant lastSeenAt) {
-        saveWorkspace(name, home, session, "default", createdAt, lastSeenAt);
-    }
-
     public void saveWorkspace(String name, NodeId home, String session, String socket, Instant createdAt, Instant lastSeenAt) {
         Properties p = new Properties();
         p.setProperty("version", "1");

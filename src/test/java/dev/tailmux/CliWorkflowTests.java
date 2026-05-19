@@ -137,7 +137,7 @@ final class CliWorkflowTests extends TestMain {
     private void testRegistryOwnerUnreachableDoesNotCreateDuplicate() throws Exception {
         Path home = tempDir();
         PropertiesStateStore store = new PropertiesStateStore(home.resolve(".tailmux/state"));
-        store.saveWorkspace("work", NodeId.parse("office-a"), "work", Instant.now(), Instant.now());
+        store.saveWorkspace("work", NodeId.parse("office-a"), "work", "default", Instant.now(), Instant.now());
 
         FakeRemoteExecutor remote = new FakeRemoteExecutor();
         remote.failNode("office-a", ExecResult.failure(255, "", "ssh failed"));
