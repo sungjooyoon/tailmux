@@ -15,12 +15,10 @@ import java.util.Properties;
 
 public final class TailmuxConfig {
     private final NodeId defaultHome;
-    private final List<NodeId> homePool;
     private final List<NodeConfig> nodeConfigs;
 
-    private TailmuxConfig(NodeId defaultHome, List<NodeId> homePool, List<NodeConfig> nodeConfigs) {
+    private TailmuxConfig(NodeId defaultHome, List<NodeConfig> nodeConfigs) {
         this.defaultHome = defaultHome;
-        this.homePool = List.copyOf(homePool);
         this.nodeConfigs = List.copyOf(nodeConfigs);
     }
 
@@ -59,15 +57,11 @@ public final class TailmuxConfig {
             nodes.add(new NodeConfig(id, host, parseSockets(properties.getProperty(prefix + "sockets", "")), buildSshTarget(globalUser, nodeUser, host)));
         }
 
-        return new TailmuxConfig(defaultHome, pool, nodes);
+        return new TailmuxConfig(defaultHome, nodes);
     }
 
     public NodeId defaultHome() {
         return defaultHome;
-    }
-
-    public List<NodeId> homePool() {
-        return homePool;
     }
 
     public List<NodeConfig> nodeConfigs() {

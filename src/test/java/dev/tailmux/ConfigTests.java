@@ -35,7 +35,7 @@ final class ConfigTests extends TestMain {
                 """);
 
         TailmuxConfig config = TailmuxConfig.load(home);
-        check(config.homePool().size() == 2, "loads home pool");
+        check(config.nodeConfigs().size() == 2, "loads home pool");
         check(config.defaultHome().value().equals("office-a"), "defaults home to first pool node");
         check(config.node(NodeId.parse("office-a")).host().equals("office-a.tailnet.ts.net"), "configured host");
         check(config.node(NodeId.parse("office-b")).host().equals("office-b"), "host defaults to node id");
@@ -97,6 +97,7 @@ final class ConfigTests extends TestMain {
     private void testConfigKeepsOneOrderedNodeIndex() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
         check(!source.contains("Map<NodeId") && !source.contains("Map.copyOf") && !source.contains("new LinkedHashMap"), "config uses ordered node list as its single node index");
+        check(!source.contains("homePool") && !source.contains("List.copyOf(homePool)"), "config does not retain duplicate home pool list");
     }
 
     private void testHomePoolParsingAvoidsStringListHop() throws Exception {
