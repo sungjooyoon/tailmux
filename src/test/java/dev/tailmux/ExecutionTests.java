@@ -25,13 +25,13 @@ final class ExecutionTests extends TestMain {
     }
 
     private void testLocalProcessTimeout() throws Exception {
-        ExecResult result = new LocalProcess().capture(List.of("sh", "-lc", "sleep 2"), Duration.ofMillis(50));
+        ExecResult result = new LocalProcess().capture(Duration.ofMillis(50), "sh", "-lc", "sleep 2");
         check(result.exitCode() == 124, "timeout exit code");
         check(result.stderr().contains("timed out after 50ms"), "timeout error text includes useful duration");
     }
 
     private void testLocalProcessTimeoutPreservesPartialOutput() throws Exception {
-        ExecResult result = new LocalProcess().capture(List.of("sh", "-lc", "printf out; printf err >&2; sleep 2"), Duration.ofMillis(250));
+        ExecResult result = new LocalProcess().capture(Duration.ofMillis(250), "sh", "-lc", "printf out; printf err >&2; sleep 2");
         check(result.exitCode() == 124, "partial timeout exit code");
         check(result.stdout().contains("out"), "timeout preserves partial stdout");
         check(result.stderr().contains("err"), "timeout preserves partial stderr");
@@ -39,12 +39,12 @@ final class ExecutionTests extends TestMain {
     }
 
     private void testLocalProcessDefaultTimeoutFailsFast() throws Exception {
-        ExecResult result = new LocalProcess().capture(List.of("sh", "-lc", "sleep 4"));
+        ExecResult result = new LocalProcess().capture("sh", "-lc", "sleep 4");
         check(result.exitCode() == 124, "default timeout exit code");
     }
 
     private void testLocalProcessLargeOutputDoesNotDeadlock() throws Exception {
-        ExecResult result = new LocalProcess().capture(List.of("sh", "-lc", "yes x | head -n 200000"), Duration.ofSeconds(5));
+        ExecResult result = new LocalProcess().capture(Duration.ofSeconds(5), "sh", "-lc", "yes x | head -n 200000");
         check(result.exitCode() == 0, "large output command exits successfully");
         check(result.stdout().length() > 200000, "large output is captured");
     }
@@ -81,6 +81,8 @@ final class ExecutionTests extends TestMain {
             String source = Files.readString(Path.of(file));
             check(!source.contains("capture(List.of(") && !source.contains("inherit(List.of("), file + " avoids process List.of wrappers");
         }
+        String localProcess = Files.readString(Path.of("src/main/java/dev/tailmux/exec/LocalProcess.java"));
+        check(!localProcess.contains("List<String> command"), "local process exposes varargs command API only");
     }
 
     private void testProductCodeDoesNotInvokePlainSsh() throws Exception {

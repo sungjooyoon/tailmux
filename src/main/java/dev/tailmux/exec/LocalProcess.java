@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -14,16 +13,8 @@ import java.util.concurrent.TimeUnit;
 public class LocalProcess {
     private static final Duration DEFAULT_CAPTURE_TIMEOUT = Duration.ofSeconds(3);
 
-    public ExecResult capture(List<String> command) throws IOException, InterruptedException {
-        return capture(command, DEFAULT_CAPTURE_TIMEOUT);
-    }
-
     public ExecResult capture(String... command) throws IOException, InterruptedException {
         return capture(DEFAULT_CAPTURE_TIMEOUT, command);
-    }
-
-    public ExecResult capture(List<String> command, Duration timeout) throws IOException, InterruptedException {
-        return capture(new ProcessBuilder(command), timeout);
     }
 
     public ExecResult capture(Duration timeout, String... command) throws IOException, InterruptedException {
@@ -44,11 +35,6 @@ public class LocalProcess {
         }
         int exit = process.exitValue();
         return new ExecResult(exit, new String(join(stdout), StandardCharsets.UTF_8), new String(join(stderr), StandardCharsets.UTF_8));
-    }
-
-    public int inherit(List<String> command) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(command).inheritIO().start();
-        return process.waitFor();
     }
 
     public int inherit(String... command) throws IOException, InterruptedException {

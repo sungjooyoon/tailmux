@@ -157,8 +157,7 @@ public class TestMain {
             return List.copyOf(existsChecks);
         }
 
-        @Override
-        public ExecResult capture(List<String> command) throws InterruptedException {
+        private ExecResult captureList(List<String> command) throws InterruptedException {
             if (!captureDelay.isZero()) {
                 Thread.sleep(captureDelay.toMillis());
             }
@@ -168,28 +167,18 @@ public class TestMain {
 
         @Override
         public ExecResult capture(String... command) throws InterruptedException {
-            return capture(List.of(command));
-        }
-
-        @Override
-        public ExecResult capture(List<String> command, Duration timeout) throws InterruptedException {
-            return capture(command);
+            return captureList(List.of(command));
         }
 
         @Override
         public ExecResult capture(Duration timeout, String... command) throws InterruptedException {
-            return capture(List.of(command));
-        }
-
-        @Override
-        public int inherit(List<String> command) {
-            commands.add(command);
-            return 0;
+            return captureList(List.of(command));
         }
 
         @Override
         public int inherit(String... command) {
-            return inherit(List.of(command));
+            commands.add(List.of(command));
+            return 0;
         }
 
         @Override
