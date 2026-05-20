@@ -87,7 +87,13 @@ public final class TailmuxConfig {
         for (int i = 0; i <= raw.length(); i++) {
             if (i < raw.length() && raw.charAt(i) != ',') continue;
             String value = Ascii.trim(raw, start, i);
-            if (!value.isEmpty()) nodes.add(NodeId.parse(value));
+            if (!value.isEmpty()) {
+                NodeId node = NodeId.parse(value);
+                if (nodes.contains(node)) {
+                    throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: duplicate home pool node " + node.value());
+                }
+                nodes.add(node);
+            }
             start = i + 1;
         }
         return nodes;
@@ -106,7 +112,12 @@ public final class TailmuxConfig {
         for (int i = 0; i <= raw.length(); i++) {
             if (i < raw.length() && raw.charAt(i) != ',') continue;
             String value = Ascii.trim(raw, start, i);
-            if (!value.isEmpty()) values.add(value);
+            if (!value.isEmpty()) {
+                if (values.contains(value)) {
+                    throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: duplicate socket " + value);
+                }
+                values.add(value);
+            }
             start = i + 1;
         }
         return values;

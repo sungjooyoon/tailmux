@@ -13,6 +13,7 @@ final class ConfigTests extends TestMain {
     void run() throws Exception {
         testConfigDefaults();
         testConfigRequiresHomePool();
+        testConfigRejectsDuplicateNodesAndSockets();
         testPerNodeUserOverridesGlobalUser();
         testNodeConfigsAreCached();
         testSshTargetsAreCached();
@@ -44,6 +45,17 @@ final class ConfigTests extends TestMain {
 
     private void testConfigRequiresHomePool() {
         expectThrows(dev.tailmux.core.TailmuxException.class, () -> TailmuxConfig.fromProperties(new Properties()), "home pool required");
+    }
+
+    private void testConfigRejectsDuplicateNodesAndSockets() {
+        Properties duplicateNode = new Properties();
+        duplicateNode.setProperty("tailmux.home.pool", "office-a,office-a");
+        expectThrows(dev.tailmux.core.TailmuxException.class, () -> TailmuxConfig.fromProperties(duplicateNode), "duplicate home pool nodes rejected");
+
+        Properties duplicateSocket = new Properties();
+        duplicateSocket.setProperty("tailmux.home.pool", "office-a");
+        duplicateSocket.setProperty("tailmux.node.office-a.sockets", "default,work,work");
+        expectThrows(dev.tailmux.core.TailmuxException.class, () -> TailmuxConfig.fromProperties(duplicateSocket), "duplicate node sockets rejected");
     }
 
     private void testPerNodeUserOverridesGlobalUser() {
