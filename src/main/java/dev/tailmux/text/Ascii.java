@@ -14,6 +14,23 @@ public final class Ascii {
         return false;
     }
 
+    public static boolean containsAnyIgnoreCase(String text, String[] needles) {
+        for (String needle : needles) {
+            if (needle.isEmpty()) return true;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            char c = lower(text.charAt(i));
+            for (String needle : needles) {
+                if (i + needle.length() <= text.length()
+                        && c == lower(needle.charAt(0))
+                        && matchesIgnoreCase(text, i, needle)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private static boolean matchesIgnoreCase(String text, int start, String needle) {
         for (int i = 1; i < needle.length(); i++) {
             if (lower(text.charAt(start + i)) != lower(needle.charAt(i))) return false;

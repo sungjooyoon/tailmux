@@ -19,6 +19,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 final class DoctorCommand {
+    private static final String[] SSH_RESOLVER = {"could not resolve hostname", "nodename nor servname provided"};
+    private static final String[] SSH_TIMEOUT = {"timed out"};
+    private static final String[] SSH_HOST_KEY = {"host key verification failed", "no ed25519 host key is known"};
+    private static final String[] SSH_AUTH = {"permission denied", "authentication failed"};
+
     private final TailmuxConfig config;
     private final RemoteExecutor remote;
     private final LocalProcess localProcess;
@@ -194,10 +199,10 @@ final class DoctorCommand {
 
     private SshFailure classifySshFailure(ExecResult result, String error) {
         if (result.exitCode() == 124) return SshFailure.TIMEOUT;
-        if (Ascii.containsIgnoreCase(error, "could not resolve hostname") || Ascii.containsIgnoreCase(error, "nodename nor servname provided")) return SshFailure.RESOLVER;
-        if (Ascii.containsIgnoreCase(error, "timed out")) return SshFailure.TIMEOUT;
-        if (Ascii.containsIgnoreCase(error, "host key verification failed") || Ascii.containsIgnoreCase(error, "no ed25519 host key is known")) return SshFailure.HOST_KEY;
-        if (Ascii.containsIgnoreCase(error, "permission denied") || Ascii.containsIgnoreCase(error, "authentication failed")) return SshFailure.AUTH;
+        if (Ascii.containsAnyIgnoreCase(error, SSH_RESOLVER)) return SshFailure.RESOLVER;
+        if (Ascii.containsAnyIgnoreCase(error, SSH_TIMEOUT)) return SshFailure.TIMEOUT;
+        if (Ascii.containsAnyIgnoreCase(error, SSH_HOST_KEY)) return SshFailure.HOST_KEY;
+        if (Ascii.containsAnyIgnoreCase(error, SSH_AUTH)) return SshFailure.AUTH;
         return SshFailure.OTHER;
     }
 

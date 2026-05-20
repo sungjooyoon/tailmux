@@ -155,10 +155,12 @@ final class CoreTests extends TestMain {
 
     private void testClassifiersShareAsciiScanner() throws Exception {
         check(dev.tailmux.text.Ascii.containsIgnoreCase("Host Key Verification Failed", "host key verification failed"), "ascii scanner matches case-insensitive diagnostics");
+        check(dev.tailmux.text.Ascii.containsAnyIgnoreCase("Permission denied (publickey)", new String[]{"authentication failed", "permission denied"}), "ascii scanner matches any diagnostic needle");
         String tmux = Files.readString(Path.of("src/main/java/dev/tailmux/tmux/TmuxFailure.java"));
         String doctor = Files.readString(Path.of("src/main/java/dev/tailmux/cli/DoctorCommand.java"));
         String ascii = Files.readString(Path.of("src/main/java/dev/tailmux/text/Ascii.java"));
-        check(tmux.contains("Ascii.containsIgnoreCase") && doctor.contains("Ascii.containsIgnoreCase"), "diagnostic classifiers share ascii scanner");
+        check(tmux.contains("Ascii.containsAnyIgnoreCase") && doctor.contains("Ascii.containsAnyIgnoreCase"), "diagnostic classifiers batch related needles through ascii scanner");
+        check(!tmux.contains("contains(result,") && !doctor.contains("containsIgnoreCase(error"), "diagnostic classifiers avoid repeated same-text scanner calls");
         check(!tmux.contains("regionMatches(true") && !doctor.contains("regionMatches(true"), "diagnostic classifiers do not duplicate scanner loops");
         check(!ascii.contains("regionMatches(true"), "ascii scanner uses direct char folding");
     }

@@ -4,6 +4,17 @@ import dev.tailmux.exec.ExecResult;
 import dev.tailmux.text.Ascii;
 
 public final class TmuxFailure {
+    private static final String[] MISSING_BINARY = {
+            "tmux: command not found",
+            "tmux: not found",
+            "command not found: tmux"
+    };
+    private static final String[] NO_SERVER = {
+            "no server",
+            "no tmux server",
+            "failed to connect to server"
+    };
+
     private TmuxFailure() {
     }
 
@@ -19,21 +30,13 @@ public final class TmuxFailure {
         if (result.ok()) return Kind.OK;
         if (remoteExecution(result)) return Kind.REMOTE_EXECUTION;
         if (result.exitCode() == 127) return Kind.MISSING_BINARY;
-        if (contains(result, "tmux: command not found")
-                || contains(result, "tmux: not found")
-                || contains(result, "command not found: tmux")) {
-            return Kind.MISSING_BINARY;
-        }
-        if (contains(result, "no server")
-                || contains(result, "no tmux server")
-                || contains(result, "failed to connect to server")) {
-            return Kind.NO_SERVER;
-        }
+        if (containsAny(result, MISSING_BINARY)) return Kind.MISSING_BINARY;
+        if (containsAny(result, NO_SERVER)) return Kind.NO_SERVER;
         return Kind.OTHER;
     }
 
-    private static boolean contains(ExecResult result, String needle) {
-        return Ascii.containsIgnoreCase(result.stderr(), needle) || Ascii.containsIgnoreCase(result.stdout(), needle);
+    private static boolean containsAny(ExecResult result, String[] needles) {
+        return Ascii.containsAnyIgnoreCase(result.stderr(), needles) || Ascii.containsAnyIgnoreCase(result.stdout(), needles);
     }
 
     public static boolean remoteExecution(ExecResult result) {
