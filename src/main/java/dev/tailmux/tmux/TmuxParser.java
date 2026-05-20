@@ -28,17 +28,17 @@ public final class TmuxParser {
         for (Row row; (row = sessionRows.next()) != null; ) {
             String name = required(row, "session");
             String id = required(row, "session");
-            String attached = required(row, "session");
-            String created = required(row, "session");
-            String activity = required(row, "session");
+            boolean attached = row.nextFlag("session");
+            long created = row.nextLong("session");
+            long activity = row.nextLong("session");
             sessions.add(new MutableSession(
                     socket,
                     name,
                     id,
-                    "1".equals(attached),
-                    parseLong(created),
-                    parseLong(activity),
-                    row.hasNext() ? parseInt(row.next()) : 0
+                    attached,
+                    created,
+                    activity,
+                    row.hasNext() ? row.nextInt("session") : 0
             ));
         }
 
@@ -46,17 +46,17 @@ public final class TmuxParser {
         Rows windowRows = rows(windowsOutput);
         for (Row row; (row = windowRows.next()) != null; ) {
             String sessionName = required(row, "window");
-            int index = parseInt(required(row, "window"));
+            int index = row.nextInt("window");
             String id = required(row, "window");
             String name = required(row, "window");
-            boolean active = "1".equals(required(row, "window"));
+            boolean active = row.nextFlag("window");
             MutableSession session = session(windowSession, sessions, sessionName);
             // tmux can report rows from stale/racing state; keep discovery useful by ignoring rows whose parent is absent.
             if (session != null) {
                 windowSession = session;
                 MutableWindow window = new MutableWindow(index, id, name, active);
                 if (!hasFullPaneRows && row.hasFields(4)) {
-                    window.panes.add(new TmuxPane(parseInt(row.next()), row.next(), row.next(), row.next(), true));
+                    window.panes.add(new TmuxPane(row.nextInt("window"), row.next(), row.next(), row.next(), true));
                 }
                 session.windows.add(window);
             }
@@ -67,12 +67,12 @@ public final class TmuxParser {
         Rows paneRows = rows(panesOutput);
         for (Row row; (row = paneRows.next()) != null; ) {
             String sessionName = required(row, "pane");
-            int windowIndex = parseInt(required(row, "pane"));
-            int paneIndex = parseInt(required(row, "pane"));
+            int windowIndex = row.nextInt("pane");
+            int paneIndex = row.nextInt("pane");
             String id = required(row, "pane");
             String cwd = required(row, "pane");
             String command = required(row, "pane");
-            boolean active = "1".equals(required(row, "pane"));
+            boolean active = row.nextFlag("pane");
             MutableSession session = session(paneSession, sessions, sessionName);
             MutableWindow window = session == null ? null : session.window(paneWindow, windowIndex);
             // Same rule as windows: orphan pane rows are ignored, not promoted into phantom sessions.
@@ -127,22 +127,6 @@ public final class TmuxParser {
             throw new IllegalArgumentException("invalid tmux " + type + " row: " + printable(row));
         }
         return row.next();
-    }
-
-    private static long parseLong(String value) {
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException e) {
-            return 0L;
-        }
-    }
-
-    private static int parseInt(String value) {
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            return 0;
-        }
     }
 
     private static String printable(Row row) {
@@ -205,14 +189,55 @@ public final class TmuxParser {
         }
 
         private String next() {
+            int from = start;
+            return source.substring(from, nextEnd());
+        }
+
+        private int nextInt(String type) {
+            return (int) nextLong(type);
+        }
+
+        private long nextLong(String type) {
+            if (!available) throw invalid(type);
+            int from = start;
+            int to = nextEnd();
+            if (from == to) return 0L;
+            boolean negative = source.charAt(from) == '-';
+            int index = negative || source.charAt(from) == '+' ? from + 1 : from;
+            if (index == to) return 0L;
+            long value = 0L;
+            for (; index < to; index++) {
+                char c = source.charAt(index);
+                if (c < '0' || c > '9') return 0L;
+                int digit = c - '0';
+                if (value > (Long.MAX_VALUE - digit) / 10L) return 0L;
+                value = value * 10L + digit;
+            }
+            return negative ? -value : value;
+        }
+
+        private boolean nextFlag(String type) {
+            if (!available) throw invalid(type);
+            int from = start;
+            int to = nextEnd();
+            return to == from + 1 && source.charAt(from) == '1';
+        }
+
+        private int nextEnd() {
             int sep = source.indexOf(SEP_CHAR, start);
             if (sep < 0 || sep >= end) {
+                int fieldEnd = end;
+                start = end;
                 available = false;
-                return source.substring(start, end);
+                return fieldEnd;
             }
-            String value = source.substring(start, sep);
+            int fieldEnd = sep;
             start = sep + 1;
-            return value;
+            return fieldEnd;
+        }
+
+        private IllegalArgumentException invalid(String type) {
+            return new IllegalArgumentException("invalid tmux " + type + " row: " + printable(this));
         }
     }
 
