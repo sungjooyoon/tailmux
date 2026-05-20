@@ -92,6 +92,7 @@ final class ConfigTests extends TestMain {
         String node = Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java"));
         check(!config.contains("StringTokenizer"), "config csv parsing avoids tokenizer allocation");
         check(!config.contains(".trim()"), "config parsing uses ascii trim helpers");
+        check(!config.contains("Ascii.trim(host)"), "config normalizes host once before ssh target construction");
         check(!node.contains(".isBlank("), "node config uses ascii text checks");
     }
 

@@ -52,7 +52,7 @@ public final class TailmuxConfig {
         ArrayList<NodeConfig> nodes = new ArrayList<>(pool.size());
         for (NodeId id : pool) {
             String prefix = "tailmux.node." + id.value() + ".";
-            String host = properties.getProperty(prefix + "host", id.value());
+            String host = value(properties.getProperty(prefix + "host", id.value()));
             String nodeUser = value(properties.getProperty(prefix + "user", ""));
             nodes.add(new NodeConfig(id, host, parseSockets(properties.getProperty(prefix + "sockets", "")), buildSshTarget(globalUser, nodeUser, host)));
         }
@@ -76,8 +76,8 @@ public final class TailmuxConfig {
     }
 
     private static String buildSshTarget(String globalUser, String nodeUser, String host) {
-        if (!nodeUser.isEmpty()) return nodeUser + "@" + Ascii.trim(host);
-        if (!globalUser.isEmpty()) return globalUser + "@" + Ascii.trim(host);
+        if (!nodeUser.isEmpty()) return nodeUser + "@" + host;
+        if (!globalUser.isEmpty()) return globalUser + "@" + host;
         return host;
     }
 
