@@ -96,6 +96,7 @@ public final class TailmuxConfig {
     private static List<String> parseSockets(String raw) {
         if (!Ascii.hasText(raw)) return NodeConfig.DEFAULT_SOCKETS;
         List<String> parsed = parseCsv(raw);
+        if (parsed.size() == 1 && "default".equals(parsed.getFirst())) return NodeConfig.DEFAULT_SOCKETS;
         return parsed.isEmpty() ? NodeConfig.DEFAULT_SOCKETS : parsed;
     }
 

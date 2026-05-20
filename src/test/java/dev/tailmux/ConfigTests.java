@@ -81,6 +81,7 @@ final class ConfigTests extends TestMain {
     private void testDefaultSocketListIsCanonical() throws Exception {
         Properties p = new Properties();
         p.setProperty("tailmux.home.pool", "office-a,office-b");
+        p.setProperty("tailmux.node.office-a.sockets", "default");
         TailmuxConfig config = TailmuxConfig.fromProperties(p);
 
         check(config.node(NodeId.parse("office-a")).sockets() == config.node(NodeId.parse("office-b")).sockets(), "default socket list is shared");
