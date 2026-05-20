@@ -20,15 +20,21 @@ public final class AtomicFiles {
     public static void writeProperties(Path path, Properties properties) throws IOException {
         Files.createDirectories(path.getParent());
         Path temp = Files.createTempFile(path.getParent(), path.getFileName().toString(), ".tmp");
-        byte[] bytes = render(properties).getBytes(StandardCharsets.UTF_8);
-        try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            channel.write(ByteBuffer.wrap(bytes));
-            channel.force(true);
-        }
+        boolean moved = false;
         try {
-            Files.move(temp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException e) {
-            Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
+            byte[] bytes = render(properties).getBytes(StandardCharsets.UTF_8);
+            try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                channel.write(ByteBuffer.wrap(bytes));
+                channel.force(true);
+            }
+            try {
+                Files.move(temp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
+            }
+            moved = true;
+        } finally {
+            if (!moved) Files.deleteIfExists(temp);
         }
     }
 

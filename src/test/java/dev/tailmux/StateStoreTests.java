@@ -25,6 +25,7 @@ final class StateStoreTests extends TestMain {
         testStateWritersAvoidStreamCollectors();
         testStateReadsAvoidOptionalWrappers();
         testAtomicPropertyEscapeIsSinglePass();
+        testAtomicWriteCleansFailedTempFile();
         testSnapshotLoadListsUseStoredCounts();
         testSnapshotWriteCachesNestedLists();
         testEventLogSortsApprovedFieldsOnly();
@@ -171,6 +172,11 @@ final class StateStoreTests extends TestMain {
         check(!source.contains(".replace("), "atomic property escaping avoids replace chains");
         check(!source.contains("String replacement"), "atomic property escaping avoids per-character replacement strings");
         check(!source.contains("StringBuilder out = new StringBuilder();"), "atomic property renderer pre-sizes output");
+    }
+
+    private void testAtomicWriteCleansFailedTempFile() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/AtomicFiles.java"));
+        check(source.contains("Files.deleteIfExists(temp)"), "atomic property writer cleans temp file after failed write");
     }
 
     private void testSnapshotLoadListsUseStoredCounts() throws Exception {
