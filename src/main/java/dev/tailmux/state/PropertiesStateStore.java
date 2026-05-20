@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Properties;
 
 public final class PropertiesStateStore {
-    private static final String[] EVENT_FIELDS = {"command", "node", "session", "socket", "status", "transport", "workspace"};
     private final Path stateDir;
 
     public PropertiesStateStore(Path stateDir) {
@@ -181,15 +180,38 @@ public final class PropertiesStateStore {
         try {
             Files.createDirectories(stateDir.resolve("events"));
             String timestamp = at.toString();
+            String command = null;
+            String node = null;
+            String session = null;
+            String socket = null;
+            String status = null;
+            String transport = null;
+            String workspace = null;
+            for (int i = 0; i < fields.length; i += 2) {
+                String value = fields[i + 1];
+                switch (fields[i]) {
+                    case "command" -> command = value;
+                    case "node" -> node = value;
+                    case "session" -> session = value;
+                    case "socket" -> socket = value;
+                    case "status" -> status = value;
+                    case "transport" -> transport = value;
+                    case "workspace" -> workspace = value;
+                    default -> {
+                    }
+                }
+            }
             StringBuilder line = new StringBuilder("timestamp=")
                     .append(clean(timestamp))
                     .append(" event=")
                     .append(clean(event));
-            for (String name : EVENT_FIELDS) {
-                String value = pairValue(fields, name);
-                if (value == null) continue;
-                line.append(' ').append(name).append('=').append(clean(value));
-            }
+            appendField(line, "command", command);
+            appendField(line, "node", node);
+            appendField(line, "session", session);
+            appendField(line, "socket", socket);
+            appendField(line, "status", status);
+            appendField(line, "transport", transport);
+            appendField(line, "workspace", workspace);
             line.append('\n');
             Files.writeString(stateDir.resolve("events").resolve(timestamp.substring(0, 10) + ".log"),
                     line.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -198,11 +220,8 @@ public final class PropertiesStateStore {
         }
     }
 
-    private static String pairValue(String[] fields, String name) {
-        for (int i = 0; i < fields.length; i += 2) {
-            if (name.equals(fields[i])) return fields[i + 1];
-        }
-        return null;
+    private static void appendField(StringBuilder line, String name, String value) {
+        if (value != null) line.append(' ').append(name).append('=').append(clean(value));
     }
 
     private Properties load(Path path) {

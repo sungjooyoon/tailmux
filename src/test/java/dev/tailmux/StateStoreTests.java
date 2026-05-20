@@ -31,6 +31,7 @@ final class StateStoreTests extends TestMain {
         testEventLogSortsApprovedFieldsOnly();
         testEventLogFormatsTimestampOnce();
         testEventLogUsesFixedFieldOrder();
+        testEventLogClassifiesPairsOnce();
         testStateRequiredFieldsUseAsciiChecks();
         testEventLogSupportsPairFastPath();
         testEventLogHasSinglePairApi();
@@ -207,6 +208,11 @@ final class StateStoreTests extends TestMain {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
         check(!source.contains("EVENT_FIELDS.contains"), "event log iterates fixed field schema instead of membership scanning");
         check(!source.contains("Collections.sort(names)"), "event log avoids sorting fixed schema fields");
+    }
+
+    private void testEventLogClassifiesPairsOnce() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/state/PropertiesStateStore.java"));
+        check(!source.contains("pairValue("), "event log classifies caller pairs in one pass");
     }
 
     private void testStateRequiredFieldsUseAsciiChecks() throws Exception {
