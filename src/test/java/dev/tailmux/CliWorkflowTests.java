@@ -26,6 +26,7 @@ final class CliWorkflowTests extends TestMain {
         testCommandRouting();
         testCommandRoutingAvoidsBuiltinList();
         testParsedCommandAvoidsDefensiveArgCopy();
+        testAttachRoutingAvoidsSelectorRescan();
         testCommandRoutingAvoidsHomeOptionalWrappers();
         testWorkspaceShorthandAvoidsSingletonArgCopy();
         testCommandFlagsAvoidRepeatedContainsScans();
@@ -68,6 +69,11 @@ final class CliWorkflowTests extends TestMain {
     private void testParsedCommandAvoidsDefensiveArgCopy() throws Exception {
         String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/ParsedCommand.java"));
         check(!source.contains("List.copyOf(args)"), "parsed command avoids copying owned routing args");
+    }
+
+    private void testAttachRoutingAvoidsSelectorRescan() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/cli/WorkspaceService.java"));
+        check(!source.contains("target.contains(\":\")"), "attach routing avoids a second selector delimiter scan");
     }
 
     private void testCommandRoutingAvoidsHomeOptionalWrappers() throws Exception {

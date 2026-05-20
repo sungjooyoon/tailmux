@@ -41,7 +41,7 @@ final class WorkspaceService {
 
     int attachCommand(List<String> args) throws IOException, InterruptedException {
         String target = firstArg(args, "attach: target");
-        return target.contains(":")
+        return target.indexOf(':') >= 0
                 ? attachSelector(Selector.parse(target))
                 : smartWorkspace(WorkspaceName.parse(target), null);
     }
