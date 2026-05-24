@@ -1,17 +1,20 @@
 package dev.tailmux.core;
 
+import dev.tailmux.text.Ascii;
+
 import java.util.Objects;
 
 public record WorkspaceName(String value) {
     public WorkspaceName {
         Objects.requireNonNull(value, "value");
-        if (!value.matches("[A-Za-z0-9][A-Za-z0-9_-]*")) {
+        value = Ascii.trim(value);
+        if (!NodeId.valid(value, false)) {
             throw new IllegalArgumentException("invalid workspace name: " + value);
         }
     }
 
     public static WorkspaceName parse(String value) {
-        return new WorkspaceName(value.trim());
+        return new WorkspaceName(value);
     }
 
     @Override
@@ -19,4 +22,3 @@ public record WorkspaceName(String value) {
         return value;
     }
 }
-

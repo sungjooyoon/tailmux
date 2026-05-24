@@ -9,35 +9,48 @@ import java.util.List;
 import java.util.Map;
 
 public final class FakeRemoteExecutor implements RemoteExecutor {
-    private final Map<String, ExecResult> responses = new LinkedHashMap<String, ExecResult> ();
-    private final Map<String, ExecResult> nodeFailures = new LinkedHashMap<String, ExecResult> ();
-    private final Map<String, ArrayList<String>> commands = new LinkedHashMap<String, ArrayList<String>> ();
-    private final ArrayList<String> interactive = new ArrayList<String> ();
+    private final Map<String, ExecResult> responses = new LinkedHashMap<>();
+    private final Map<String, ExecResult> nodeFailures = new LinkedHashMap<>();
+    private final Map<String, ArrayList<String>> commands = new LinkedHashMap<>();
+    private final ArrayList<String> interactive = new ArrayList<>();
 
-    public void when(String node, String command, ExecResult result) {
+    public synchronized void when(String node, String command, ExecResult result) {
         responses.put(key(node, command), result);
     }
 
-    public void failNode(String node, ExecResult result) {
+    public synchronized void failNode(String node, ExecResult result) {
         nodeFailures.put(node, result);
     }
 
-    public List<String> commandsFor(String node) {
-        return List.copyOf(commands.getOrDefault(node, new ArrayList<String> ()));
+    public synchronized List<String> commandsFor(String node) {
+        return List.copyOf(commands.getOrDefault(node, new ArrayList<>()));
     }
 
-    public List<String> interactiveCommands() {
+    public synchronized List<String> interactiveCommands() {
         return List.copyOf(interactive);
     }
 
     @Override
-    public ExecResult execute(NodeConfig node, String command) {
-        commands.computeIfAbsent(node.id().value(), ignored -> new ArrayList<String> ()).add(command);
+    public synchronized ExecResult execute(NodeConfig node, String command) {
+        commands.computeIfAbsent(node.id().value(), ignored -> new ArrayList<>()).add(command);
         ExecResult nodeFailure = nodeFailures.get(node.id().value());
         if (nodeFailure != null) {
             return nodeFailure;
         }
         for (String socket : node.sockets()) {
+            if (command.equals(TmuxCommands.discoverWindows(socket))) {
+                ExecResult sessions = responses.get(key(node.id().value(), TmuxCommands.listSessions(socket)));
+                ExecResult windows = responses.get(key(node.id().value(), TmuxCommands.listWindows(socket)));
+                if (sessions != null) {
+                    if (!sessions.ok()) {
+                        return sessions;
+                    }
+                    String stdout = sessions.stdout()
+                            + TmuxCommands.DISCOVERY_WINDOWS_MARKER + "\n"
+                            + (windows == null ? "" : windows.stdout());
+                    return new ExecResult(windows == null ? 0 : windows.exitCode(), stdout, windows == null ? "" : windows.stderr());
+                }
+            }
             if (command.equals(TmuxCommands.discover(socket))) {
                 ExecResult sessions = responses.get(key(node.id().value(), TmuxCommands.listSessions(socket)));
                 ExecResult windows = responses.get(key(node.id().value(), TmuxCommands.listWindows(socket)));
@@ -62,7 +75,7 @@ public final class FakeRemoteExecutor implements RemoteExecutor {
     }
 
     @Override
-    public int attachInteractive(NodeConfig node, String command) {
+    public synchronized int attachInteractive(NodeConfig node, String command) {
         interactive.add(node.id().value() + ":" + command);
         return 0;
     }

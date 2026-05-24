@@ -1,17 +1,23 @@
 package dev.tailmux.config;
 
 import dev.tailmux.core.NodeId;
+import dev.tailmux.text.Ascii;
 
 import java.util.List;
-import java.util.Optional;
 
-public record NodeConfig(NodeId id, String host, Optional<String> user, List<String> sockets) {
+public record NodeConfig(NodeId id, String host, List<String> sockets, String sshTarget) {
+    static final List<String> DEFAULT_SOCKETS = List.of("default");
+
     public NodeConfig {
-        if (host == null || host.isBlank()) {
+        host = Ascii.trim(host);
+        if (host.isEmpty()) {
             throw new IllegalArgumentException("host is required for node " + id);
         }
-        user = user == null ? Optional.empty() : user;
-        sockets = sockets == null || sockets.isEmpty() ? List.of("default") : List.copyOf(sockets);
+        sockets = sockets == null || sockets.isEmpty() || sockets == DEFAULT_SOCKETS ? DEFAULT_SOCKETS : List.copyOf(sockets);
+        sshTarget = Ascii.trim(sshTarget);
+        if (sshTarget.isEmpty()) {
+            throw new IllegalArgumentException("ssh target is required for node " + id);
+        }
     }
 
     public String defaultSocket() {

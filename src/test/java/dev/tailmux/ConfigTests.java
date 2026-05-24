@@ -1,0 +1,133 @@
+package dev.tailmux;
+
+import dev.tailmux.config.TailmuxConfig;
+import dev.tailmux.core.NodeId;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Properties;
+
+final class ConfigTests extends TestMain {
+    @Override
+    void run() throws Exception {
+        testConfigDefaults();
+        testConfigRequiresHomePool();
+        testConfigRejectsDuplicateNodesAndSockets();
+        testPerNodeUserOverridesGlobalUser();
+        testNodeConfigsAreCached();
+        testSshTargetsAreCached();
+        testSshTargetBuildAvoidsOptionalMap();
+        testDefaultSocketListIsCanonical();
+        testConfigParsingUsesAsciiScanners();
+        testConfigKeepsOneOrderedNodeIndex();
+        testHomePoolParsingAvoidsStringListHop();
+        testConfigDoesNotStoreUnusedUserOptionals();
+        testDefaultSocketsShortCircuitCsvParsing();
+    }
+
+    private void testConfigDefaults() throws Exception {
+        Path home = tempDir();
+        Path configFile = home.resolve(".tailmux/config.properties");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, """
+                tailmux.home.pool=office-a, office-b
+                tailmux.node.office-a.host=office-a.tailnet.ts.net
+                """);
+
+        TailmuxConfig config = TailmuxConfig.load(home);
+        check(config.nodeConfigs().size() == 2, "loads home pool");
+        check(config.defaultHome().value().equals("office-a"), "defaults home to first pool node");
+        check(config.node(NodeId.parse("office-a")).host().equals("office-a.tailnet.ts.net"), "configured host");
+        check(config.node(NodeId.parse("office-b")).host().equals("office-b"), "host defaults to node id");
+        check(config.node(NodeId.parse("office-b")).sockets().equals(List.of("default")), "sockets default");
+    }
+
+    private void testConfigRequiresHomePool() {
+        expectThrows(dev.tailmux.core.TailmuxException.class, () -> TailmuxConfig.fromProperties(new Properties()), "home pool required");
+    }
+
+    private void testConfigRejectsDuplicateNodesAndSockets() {
+        Properties duplicateNode = new Properties();
+        duplicateNode.setProperty("tailmux.home.pool", "office-a,office-a");
+        expectThrows(dev.tailmux.core.TailmuxException.class, () -> TailmuxConfig.fromProperties(duplicateNode), "duplicate home pool nodes rejected");
+
+        Properties duplicateSocket = new Properties();
+        duplicateSocket.setProperty("tailmux.home.pool", "office-a");
+        duplicateSocket.setProperty("tailmux.node.office-a.sockets", "default,work,work");
+        expectThrows(dev.tailmux.core.TailmuxException.class, () -> TailmuxConfig.fromProperties(duplicateSocket), "duplicate node sockets rejected");
+    }
+
+    private void testPerNodeUserOverridesGlobalUser() {
+        Properties p = new Properties();
+        p.setProperty("tailmux.user", "sungjooyoon");
+        p.setProperty("tailmux.home.pool", "sungjoos-mac-pro,sungjoos-mac-studio");
+        p.setProperty("tailmux.node.sungjoos-mac-studio.user", "sjy2");
+
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+
+        check(config.node(NodeId.parse("sungjoos-mac-pro")).sshTarget().equals("sungjooyoon@sungjoos-mac-pro"), "global user applies by default");
+        check(config.node(NodeId.parse("sungjoos-mac-studio")).sshTarget().equals("sjy2@sungjoos-mac-studio"), "node user overrides global user");
+    }
+
+    private void testNodeConfigsAreCached() {
+        TailmuxConfig config = configWithPool();
+        check(config.nodeConfigs() == config.nodeConfigs(), "node config list is cached");
+    }
+
+    private void testSshTargetsAreCached() {
+        Properties p = new Properties();
+        p.setProperty("tailmux.user", "sungjooyoon");
+        p.setProperty("tailmux.home.pool", "office-a");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+
+        check(config.node(NodeId.parse("office-a")).sshTarget() == config.node(NodeId.parse("office-a")).sshTarget(), "ssh target string is cached");
+    }
+
+    private void testSshTargetBuildAvoidsOptionalMap() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        check(!source.contains("user.map("), "ssh target construction avoids Optional.map allocation");
+        check(!source.contains("public String sshTarget"), "config does not wrap node ssh target accessor");
+    }
+
+    private void testDefaultSocketListIsCanonical() throws Exception {
+        Properties p = new Properties();
+        p.setProperty("tailmux.home.pool", "office-a,office-b");
+        p.setProperty("tailmux.node.office-a.sockets", "default");
+        TailmuxConfig config = TailmuxConfig.fromProperties(p);
+
+        check(config.node(NodeId.parse("office-a")).sockets() == config.node(NodeId.parse("office-b")).sockets(), "default socket list is shared");
+        check(Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java")).contains("DEFAULT_SOCKETS"), "node config exposes canonical default sockets");
+    }
+
+    private void testConfigParsingUsesAsciiScanners() throws Exception {
+        String config = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        String node = Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java"));
+        check(!config.contains("StringTokenizer"), "config csv parsing avoids tokenizer allocation");
+        check(!config.contains(".trim()"), "config parsing uses ascii trim helpers");
+        check(!config.contains("Ascii.trim(host)"), "config normalizes host once before ssh target construction");
+        check(!node.contains(".isBlank("), "node config uses ascii text checks");
+    }
+
+    private void testConfigKeepsOneOrderedNodeIndex() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        check(!source.contains("Map<NodeId") && !source.contains("Map.copyOf") && !source.contains("new LinkedHashMap"), "config uses ordered node list as its single node index");
+        check(!source.contains("homePool") && !source.contains("List.copyOf(homePool)"), "config does not retain duplicate home pool list");
+    }
+
+    private void testHomePoolParsingAvoidsStringListHop() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        check(!source.contains("List<String> values = parseCsv(raw)"), "home pool parser avoids intermediate string list");
+    }
+
+    private void testConfigDoesNotStoreUnusedUserOptionals() throws Exception {
+        String config = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        String node = Files.readString(Path.of("src/main/java/dev/tailmux/config/NodeConfig.java"));
+        check(!config.contains("Optional<String>") && !node.contains("Optional<String>"), "config does not allocate unused user optionals");
+    }
+
+    private void testDefaultSocketsShortCircuitCsvParsing() throws Exception {
+        String source = Files.readString(Path.of("src/main/java/dev/tailmux/config/TailmuxConfig.java"));
+        check(source.contains("if (!Ascii.hasText(raw)) return NodeConfig.DEFAULT_SOCKETS;"), "default socket config avoids csv parser allocation");
+    }
+}

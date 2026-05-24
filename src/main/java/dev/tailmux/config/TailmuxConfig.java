@@ -3,28 +3,23 @@ package dev.tailmux.config;
 import dev.tailmux.cli.ExitCodes;
 import dev.tailmux.core.NodeId;
 import dev.tailmux.core.TailmuxException;
+import dev.tailmux.text.Ascii;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
 
 public final class TailmuxConfig {
-    private final Optional<String> user;
     private final NodeId defaultHome;
-    private final List<NodeId> homePool;
-    private final Map<NodeId, NodeConfig> nodes;
+    private final List<NodeConfig> nodeConfigs;
 
-    private TailmuxConfig(Optional<String> user, NodeId defaultHome, List<NodeId> homePool, Map<NodeId, NodeConfig> nodes) {
-        this.user = user;
+    private TailmuxConfig(NodeId defaultHome, List<NodeConfig> nodeConfigs) {
         this.defaultHome = defaultHome;
-        this.homePool = List.copyOf(homePool);
-        this.nodes = Map.copyOf(nodes);
+        this.nodeConfigs = List.copyOf(nodeConfigs);
     }
 
     public static TailmuxConfig load(Path home) {
@@ -48,61 +43,87 @@ public final class TailmuxConfig {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: tailmux.home.pool is required");
         }
 
-        NodeId defaultHome = NodeId.parse(properties.getProperty("tailmux.home.default", pool.getFirst().value()).trim());
+        NodeId defaultHome = NodeId.parse(properties.getProperty("tailmux.home.default", pool.getFirst().value()));
         if (!pool.contains(defaultHome)) {
             throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: tailmux.home.default must be in tailmux.home.pool");
         }
 
-        Map<NodeId, NodeConfig> nodes = new LinkedHashMap<NodeId, NodeConfig> ();
+        String globalUser = value(properties.getProperty("tailmux.user", ""));
+        ArrayList<NodeConfig> nodes = new ArrayList<>(pool.size());
         for (NodeId id : pool) {
             String prefix = "tailmux.node." + id.value() + ".";
-            String host = properties.getProperty(prefix + "host", id.value()).trim();
-            nodes.put(id, new NodeConfig(id, host, optional(properties.getProperty(prefix + "user", "")), parseSockets(properties.getProperty(prefix + "sockets", ""))));
+            String host = value(properties.getProperty(prefix + "host", id.value()));
+            String nodeUser = value(properties.getProperty(prefix + "user", ""));
+            nodes.add(new NodeConfig(id, host, parseSockets(properties.getProperty(prefix + "sockets", "")), buildSshTarget(globalUser, nodeUser, host)));
         }
 
-        return new TailmuxConfig(optional(properties.getProperty("tailmux.user", "")), defaultHome, pool, nodes);
+        return new TailmuxConfig(defaultHome, nodes);
     }
 
     public NodeId defaultHome() {
         return defaultHome;
     }
 
-    public List<NodeId> homePool() {
-        return homePool;
-    }
-
     public List<NodeConfig> nodeConfigs() {
-        return homePool.stream().map(this::node).toList();
+        return nodeConfigs;
     }
 
     public NodeConfig node(NodeId id) {
-        NodeConfig config = nodes.get(id);
-        if (config == null) {
-            throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: unknown node " + id.value());
+        for (NodeConfig config : nodeConfigs) {
+            if (config.id().equals(id)) return config;
         }
-        return config;
+        throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: unknown node " + id.value());
     }
 
-    public String sshTarget(NodeConfig node) {
-        Optional<String> sshUser = node.user().or(() -> user);
-        return sshUser.map(value -> value + "@" + node.host()).orElse(node.host());
+    private static String buildSshTarget(String globalUser, String nodeUser, String host) {
+        if (!nodeUser.isEmpty()) return nodeUser + "@" + host;
+        if (!globalUser.isEmpty()) return globalUser + "@" + host;
+        return host;
     }
 
     private static List<NodeId> parseNodeList(String raw) {
-        return parseCsv(raw).stream().map(NodeId::parse).toList();
+        ArrayList<NodeId> nodes = new ArrayList<>();
+        int start = 0;
+        for (int i = 0; i <= raw.length(); i++) {
+            if (i < raw.length() && raw.charAt(i) != ',') continue;
+            String value = Ascii.trim(raw, start, i);
+            if (!value.isEmpty()) {
+                NodeId node = NodeId.parse(value);
+                if (nodes.contains(node)) {
+                    throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: duplicate home pool node " + node.value());
+                }
+                nodes.add(node);
+            }
+            start = i + 1;
+        }
+        return nodes;
     }
 
     private static List<String> parseSockets(String raw) {
+        if (!Ascii.hasText(raw)) return NodeConfig.DEFAULT_SOCKETS;
         List<String> parsed = parseCsv(raw);
-        return parsed.isEmpty() ? List.of("default") : parsed;
+        if (parsed.size() == 1 && "default".equals(parsed.getFirst())) return NodeConfig.DEFAULT_SOCKETS;
+        return parsed.isEmpty() ? NodeConfig.DEFAULT_SOCKETS : parsed;
     }
 
     private static List<String> parseCsv(String raw) {
-        return List.of(raw.split(",")).stream().map(String::trim).filter(value -> !value.isEmpty()).toList();
+        ArrayList<String> values = new ArrayList<>();
+        int start = 0;
+        for (int i = 0; i <= raw.length(); i++) {
+            if (i < raw.length() && raw.charAt(i) != ',') continue;
+            String value = Ascii.trim(raw, start, i);
+            if (!value.isEmpty()) {
+                if (values.contains(value)) {
+                    throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL config: duplicate socket " + value);
+                }
+                values.add(value);
+            }
+            start = i + 1;
+        }
+        return values;
     }
 
-    private static Optional<String> optional(String raw) {
-        String trimmed = raw.trim();
-        return trimmed.isEmpty() ? Optional.empty() : Optional.of(trimmed);
+    private static String value(String raw) {
+        return Ascii.trim(raw);
     }
 }

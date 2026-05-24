@@ -10,14 +10,16 @@ import dev.tailmux.core.TmuxSession;
 import dev.tailmux.core.TmuxWindow;
 import dev.tailmux.core.Workspace;
 import dev.tailmux.core.WorkspaceName;
+import dev.tailmux.text.Ascii;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Optional;
+import java.util.List;
 import java.util.Properties;
 
 public final class PropertiesStateStore {
@@ -37,25 +39,27 @@ public final class PropertiesStateStore {
         }
     }
 
-    public Optional<Workspace> loadWorkspace(String name) {
+    public Workspace loadWorkspace(String name) {
         Path path = stateDir.resolve("workspaces").resolve(name + ".properties");
         if (!Files.isRegularFile(path)) {
-            return Optional.empty();
+            return null;
         }
-        Properties p = load(path);
-        return Optional.of(new Workspace(
-                WorkspaceName.parse(p.getProperty("name", name)),
-                NodeId.parse(p.getProperty("home")),
-                p.getProperty("session", name),
-                p.getProperty("socket", "default"),
-                Instant.parse(p.getProperty("createdAt")),
-                Instant.parse(p.getProperty("lastSeenAt")),
-                p.getProperty("transport", "ssh")
-        ));
-    }
-
-    public void saveWorkspace(String name, NodeId home, String session, Instant createdAt, Instant lastSeenAt) {
-        saveWorkspace(name, home, session, "default", createdAt, lastSeenAt);
+        try {
+            Properties p = load(path);
+            return new Workspace(
+                    WorkspaceName.parse(p.getProperty("name", name)),
+                    NodeId.parse(required(p, "home")),
+                    p.getProperty("session", name),
+                    p.getProperty("socket", "default"),
+                    Instant.parse(required(p, "createdAt")),
+                    Instant.parse(required(p, "lastSeenAt")),
+                    p.getProperty("transport", "ssh")
+            );
+        } catch (TailmuxException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw malformed("workspace", path, e);
+        }
     }
 
     public void saveWorkspace(String name, NodeId home, String session, String socket, Instant createdAt, Instant lastSeenAt) {
@@ -71,52 +75,59 @@ public final class PropertiesStateStore {
         write(stateDir.resolve("workspaces").resolve(name + ".properties"), p);
     }
 
-    public Optional<NodeSnapshot> loadSnapshot(NodeId node) {
+    public NodeSnapshot loadSnapshot(NodeId node) {
         Path path = stateDir.resolve("snapshots").resolve(node.value() + ".properties");
         if (!Files.isRegularFile(path)) {
-            return Optional.empty();
+            return null;
         }
-        Properties p = load(path);
-        int sessionCount = intProperty(p, "sessions.count", 0);
-        ArrayList<TmuxSession> sessions = new ArrayList<TmuxSession> ();
-        for (int i = 0; i < sessionCount; i++) {
-            String prefix = "sessions." + i + ".";
-            int windowCount = intProperty(p, prefix + "windows.count", 0);
-            ArrayList<TmuxWindow> windows = new ArrayList<TmuxWindow> ();
-            for (int w = 0; w < windowCount; w++) {
-                String wp = prefix + "windows." + w + ".";
-                int paneCount = intProperty(p, wp + "panes.count", 0);
-                ArrayList<TmuxPane> panes = new ArrayList<TmuxPane> ();
-                for (int pane = 0; pane < paneCount; pane++) {
-                    String pp = wp + "panes." + pane + ".";
-                    panes.add(new TmuxPane(
-                            intProperty(p, pp + "index", 0),
-                            p.getProperty(pp + "id", ""),
-                            p.getProperty(pp + "cwd", ""),
-                            p.getProperty(pp + "command", ""),
-                            Boolean.parseBoolean(p.getProperty(pp + "active", "false"))
+        try {
+            Properties p = load(path);
+            int sessionCount = countProperty(p, "sessions.count", 0);
+            ArrayList<TmuxSession> sessions = new ArrayList<>(sessionCount);
+            for (int i = 0; i < sessionCount; i++) {
+                String prefix = "sessions." + i + ".";
+                int windowCount = countProperty(p, prefix + "windows.count", 0);
+                ArrayList<TmuxWindow> windows = new ArrayList<>(windowCount);
+                for (int w = 0; w < windowCount; w++) {
+                    String wp = prefix + "windows." + w + ".";
+                    int paneCount = countProperty(p, wp + "panes.count", 0);
+                    ArrayList<TmuxPane> panes = new ArrayList<>(paneCount);
+                    for (int pane = 0; pane < paneCount; pane++) {
+                        String pp = wp + "panes." + pane + ".";
+                        panes.add(new TmuxPane(
+                                intProperty(p, pp + "index", 0),
+                                p.getProperty(pp + "id", ""),
+                                p.getProperty(pp + "cwd", ""),
+                                p.getProperty(pp + "command", ""),
+                                Boolean.parseBoolean(p.getProperty(pp + "active", "false"))
+                        ));
+                    }
+                    windows.add(new TmuxWindow(
+                            intProperty(p, wp + "index", 0),
+                            p.getProperty(wp + "id", ""),
+                            p.getProperty(wp + "name", ""),
+                            Boolean.parseBoolean(p.getProperty(wp + "active", "false")),
+                            panes
                     ));
                 }
-                windows.add(new TmuxWindow(
-                        intProperty(p, wp + "index", 0),
-                        p.getProperty(wp + "id", ""),
-                        p.getProperty(wp + "name", ""),
-                        Boolean.parseBoolean(p.getProperty(wp + "active", "false")),
-                        panes
+                sessions.add(new TmuxSession(
+                        p.getProperty(prefix + "socket", "default"),
+                        p.getProperty(prefix + "name", ""),
+                        p.getProperty(prefix + "id", ""),
+                        Boolean.parseBoolean(p.getProperty(prefix + "attached", "false")),
+                        longProperty(p, prefix + "created", 0L),
+                        longProperty(p, prefix + "activity", 0L),
+                        windows,
+                        intProperty(p, prefix + "windows.total", windows.size())
                 ));
             }
-            sessions.add(new TmuxSession(
-                    p.getProperty(prefix + "socket", "default"),
-                    p.getProperty(prefix + "name", ""),
-                    p.getProperty(prefix + "id", ""),
-                    Boolean.parseBoolean(p.getProperty(prefix + "attached", "false")),
-                    longProperty(p, prefix + "created", 0L),
-                    longProperty(p, prefix + "activity", 0L),
-                    windows
-            ));
+            NodeStatus status = NodeStatus.valueOf(p.getProperty("status", "ONLINE"));
+            return new NodeSnapshot(node, status, Instant.parse(required(p, "lastSeenAt")), sessions);
+        } catch (TailmuxException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw malformed("snapshot", path, e);
         }
-        NodeStatus status = NodeStatus.valueOf(p.getProperty("status", "ONLINE"));
-        return Optional.of(new NodeSnapshot(node, status, Instant.parse(p.getProperty("lastSeenAt")), sessions));
     }
 
     public void saveSnapshot(NodeSnapshot snapshot) {
@@ -125,9 +136,10 @@ public final class PropertiesStateStore {
         p.setProperty("node", snapshot.node().value());
         p.setProperty("status", snapshot.status().name());
         p.setProperty("lastSeenAt", snapshot.lastSeenAt().toString());
-        p.setProperty("sessions.count", Integer.toString(snapshot.sessions().size()));
-        for (int i = 0; i < snapshot.sessions().size(); i++) {
-            TmuxSession session = snapshot.sessions().get(i);
+        List<TmuxSession> sessions = snapshot.sessions();
+        p.setProperty("sessions.count", Integer.toString(sessions.size()));
+        for (int i = 0; i < sessions.size(); i++) {
+            TmuxSession session = sessions.get(i);
             String prefix = "sessions." + i + ".";
             p.setProperty(prefix + "socket", session.socket());
             p.setProperty(prefix + "name", session.name());
@@ -135,17 +147,20 @@ public final class PropertiesStateStore {
             p.setProperty(prefix + "attached", Boolean.toString(session.attached()));
             p.setProperty(prefix + "created", Long.toString(session.createdAtEpochSeconds()));
             p.setProperty(prefix + "activity", Long.toString(session.activityAtEpochSeconds()));
-            p.setProperty(prefix + "windows.count", Integer.toString(session.windows().size()));
-            for (int w = 0; w < session.windows().size(); w++) {
-                TmuxWindow window = session.windows().get(w);
+            p.setProperty(prefix + "windows.total", Integer.toString(session.windowCount()));
+            List<TmuxWindow> windows = session.windows();
+            p.setProperty(prefix + "windows.count", Integer.toString(windows.size()));
+            for (int w = 0; w < windows.size(); w++) {
+                TmuxWindow window = windows.get(w);
                 String wp = prefix + "windows." + w + ".";
                 p.setProperty(wp + "index", Integer.toString(window.index()));
                 p.setProperty(wp + "id", window.id());
                 p.setProperty(wp + "name", window.name());
                 p.setProperty(wp + "active", Boolean.toString(window.active()));
-                p.setProperty(wp + "panes.count", Integer.toString(window.panes().size()));
-                for (int pane = 0; pane < window.panes().size(); pane++) {
-                    TmuxPane tmuxPane = window.panes().get(pane);
+                List<TmuxPane> panes = window.panes();
+                p.setProperty(wp + "panes.count", Integer.toString(panes.size()));
+                for (int pane = 0; pane < panes.size(); pane++) {
+                    TmuxPane tmuxPane = panes.get(pane);
                     String pp = wp + "panes." + pane + ".";
                     p.setProperty(pp + "index", Integer.toString(tmuxPane.index()));
                     p.setProperty(pp + "id", tmuxPane.id());
@@ -156,6 +171,57 @@ public final class PropertiesStateStore {
             }
         }
         write(stateDir.resolve("snapshots").resolve(snapshot.node().value() + ".properties"), p);
+    }
+
+    public void appendEvent(Instant at, String event, String... fields) {
+        if ((fields.length & 1) != 0) {
+            throw new IllegalArgumentException("event fields must be key/value pairs");
+        }
+        try {
+            Files.createDirectories(stateDir.resolve("events"));
+            String timestamp = at.toString();
+            String command = null;
+            String node = null;
+            String session = null;
+            String socket = null;
+            String status = null;
+            String transport = null;
+            String workspace = null;
+            for (int i = 0; i < fields.length; i += 2) {
+                String value = fields[i + 1];
+                switch (fields[i]) {
+                    case "command" -> command = value;
+                    case "node" -> node = value;
+                    case "session" -> session = value;
+                    case "socket" -> socket = value;
+                    case "status" -> status = value;
+                    case "transport" -> transport = value;
+                    case "workspace" -> workspace = value;
+                    default -> {
+                    }
+                }
+            }
+            StringBuilder line = new StringBuilder("timestamp=")
+                    .append(clean(timestamp))
+                    .append(" event=")
+                    .append(clean(event));
+            appendField(line, "command", command);
+            appendField(line, "node", node);
+            appendField(line, "session", session);
+            appendField(line, "socket", socket);
+            appendField(line, "status", status);
+            appendField(line, "transport", transport);
+            appendField(line, "workspace", workspace);
+            line.append('\n');
+            Files.writeString(stateDir.resolve("events").resolve(timestamp.substring(0, 10) + ".log"),
+                    line.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            throw new TailmuxException(ExitCodes.CONFIG_ERROR, "FAIL state: could not write event log: " + e.getMessage(), e);
+        }
+    }
+
+    private static void appendField(StringBuilder line, String name, String value) {
+        if (value != null) line.append(' ').append(name).append('=').append(clean(value));
     }
 
     private Properties load(Path path) {
@@ -184,11 +250,50 @@ public final class PropertiesStateStore {
         }
     }
 
+    private static int countProperty(Properties p, String name, int fallback) {
+        String value = p.getProperty(name);
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(name + " must be an integer", e);
+        }
+    }
+
     private static long longProperty(Properties p, String name, long fallback) {
         try {
             return Long.parseLong(p.getProperty(name, Long.toString(fallback)));
         } catch (NumberFormatException e) {
             return fallback;
         }
+    }
+
+    private static String clean(String value) {
+        if (value == null) return "";
+        StringBuilder cleaned = null;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            boolean unsafe = c == '\r' || c == '\n' || c == '\t';
+            if (unsafe && cleaned == null) {
+                cleaned = new StringBuilder(value.length()).append(value, 0, i);
+            }
+            if (cleaned != null) cleaned.append(unsafe ? '_' : c);
+        }
+        return cleaned == null ? value : cleaned.toString();
+    }
+
+    private static String required(Properties p, String name) {
+        String value = p.getProperty(name);
+        if (!Ascii.hasText(value)) {
+            throw new IllegalArgumentException(name + " is required");
+        }
+        return value;
+    }
+
+    private static TailmuxException malformed(String type, Path path, RuntimeException cause) {
+        return new TailmuxException(ExitCodes.CONFIG_ERROR,
+                "FAIL state: malformed " + type + " " + path + ": " + cause.getMessage(), cause);
     }
 }

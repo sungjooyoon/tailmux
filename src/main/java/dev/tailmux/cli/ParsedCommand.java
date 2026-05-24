@@ -1,12 +1,9 @@
 package dev.tailmux.cli;
 
 import java.util.List;
-import java.util.Optional;
 
-public record ParsedCommand(String command, List<String> args, Optional<String> home) {
+public record ParsedCommand(String command, List<String> args, String home) {
     public ParsedCommand {
-        args = List.copyOf(args);
-        home = home == null ? Optional.empty() : home;
+        args = args == null ? List.of() : args;
     }
 }
-
